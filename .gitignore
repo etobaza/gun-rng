@@ -1,0 +1,10 @@
+# Roblox lock files
+*.rbxl.lock
+*.rbxl
+
+# Rojo project generated sourcemap
+sourcemap.json
+
+# Local Rojo sync & cache files
+.rojo/
+.customsync.json

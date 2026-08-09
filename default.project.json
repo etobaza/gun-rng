@@ -1,0 +1,27 @@
+{
+  "name": "customSync",
+  "tree": {
+    "$className": "DataModel",
+    "ReplicatedStorage": {
+      "$path": "ReplicatedStorage"
+    },
+    "ServerScriptService": {
+      "$path": "ServerScriptService"
+    },
+    "ServerStorage": {
+      "$path": "ServerStorage"
+    },
+    "StarterGui": {
+      "$path": "StarterGui"
+    },
+    "StarterPlayer": {
+      "$path": "StarterPlayer"
+    },
+    "TestService": {
+      "$path": "TestService"
+    },
+    "Workspace": {
+      "$path": "Workspace"
+    }
+  }
+}
