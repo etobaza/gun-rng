@@ -148,10 +148,10 @@ local function loadInventorySnapshot()
 
 	local snapshot = itemRemoteFunction:InvokeServer(b)
 	itemInventory = if type(snapshot) == "table" then snapshot else {}
-   
-   -- Pass the state
-   loaded = true
-   ItemController.InventoryLoadedTasks:Execute("parallel", itemInventory)
+
+	-- Pass the state
+	loaded = true
+	ItemController.InventoryLoadedTasks:Execute("parallel", itemInventory)
 end
 
 -------------------------------------------------------------------------------
@@ -159,16 +159,16 @@ end
 -------------------------------------------------------------------------------
 
 function ItemController.isLoaded()
-   return loaded
+	return loaded
 end
 
 function ItemController.onLoaded(callback: InventoryLoadedTask): () -> ()
-   if ItemController.isLoaded() then
-      task.spawn(callback, itemInventory)
-      return function() end -- Empty disconnect func
-   end
+	if ItemController.isLoaded() then
+		task.spawn(callback, itemInventory)
+		return function() end -- Empty disconnect func
+	end
 
-   return ItemController.InventoryLoadedTasks:Add(callback)
+	return ItemController.InventoryLoadedTasks:Add(callback)
 end
 
 function ItemController.requestPurchase(itemName: string): number
@@ -182,7 +182,7 @@ function ItemController.requestPurchase(itemName: string): number
 	BufferUtil.writeu32(b, offset, CRC32C(buffer.fromstring(item.Name)))
 
 	itemRemoteEvent:FireServer(b)
-   return ResponseCodes.Sent
+	return ResponseCodes.Sent
 end
 
 function ItemController.hasItem(itemName: string): boolean

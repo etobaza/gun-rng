@@ -178,11 +178,11 @@ local mergeNodes = function(nodes: { Node }, nodeIxByNode: { [Node]: number }, m
 	return compacted
 end
 
-local test = function(rounds: number)
+local _test = function(rounds: number)
 	local successRounds, failRounds = 0, 0
 	local s = os.clock()
 
-	for i = 1, rounds do
+	for _ = 1, rounds do
 		local startNode = roadNodes[math.random(#roadNodes)]
 		local targetNode = roadNodes[math.random(#roadNodes)]
 

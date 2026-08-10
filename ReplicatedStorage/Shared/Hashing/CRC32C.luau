@@ -5,7 +5,6 @@
 local bxor = bit32.bxor
 local band = bit32.band
 local rshift = bit32.rshift
-local bnot = bit32.bnot
 
 local POLY = 0x82F63B78
 
@@ -23,14 +22,14 @@ for i = 0, 255 do
 end
 
 return @native function(buf: buffer, offset: number?, length: number?): number
-	local offset = offset or 0
+	local startOffset = offset or 0
 	local totalLen = buffer.len(buf)
-	local length = length or (totalLen - offset)
+	local byteLength = length or (totalLen - startOffset)
 
 	local crc = 0xFFFFFFFF
 
-	local endOffset = offset + length
-	for i = offset, endOffset - 1 do
+	local endOffset = startOffset + byteLength
+	for i = startOffset, endOffset - 1 do
 		local b = buffer.readu8(buf, i)
 		local idx = band(bxor(crc, b), 0xFF)
 		crc = bxor(rshift(crc, 8), buffer.readu32(CRC32C_TABLE, idx * 4))

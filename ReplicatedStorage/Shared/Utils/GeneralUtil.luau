@@ -19,6 +19,32 @@ local debouncing: { [any]: true } = {}
 
 local suffixes = { "K", "M", "B", "T" }
 
+type CastResult = {
+	Instance: Instance?,
+	Normal: Vector3?,
+	Material: Enum.Material,
+	Distance: number,
+	Position: Vector3,
+}
+
+local function deepFreeze<T>(tbl: T): T
+	if type(tbl) ~= "table" then
+		return tbl
+	end
+
+	for _, v in tbl :: { [any]: any } do
+		if type(v) == "table" then
+			deepFreeze(v)
+		end
+	end
+
+	if not table.isfrozen(tbl) then
+		table.freeze(tbl)
+	end
+
+	return tbl
+end
+
 -------------------------------------------------------------------------------
 -- PUBLIC FUNCTIONS
 -------------------------------------------------------------------------------
@@ -34,42 +60,27 @@ function GeneralUtil.formatNumber(n: number): string
 	return tostring(math.floor(n))
 end
 
-function GeneralUtil.deepFreeze<T>(tbl: T): T
-	if type(tbl) ~= "table" then
-		return tbl
-	end
-
-	for _, v in tbl do
-		if type(v) == "table" then
-			GeneralUtil.deepFreeze(v)
-		end
-	end
-
-	if not table.isfrozen(tbl) then
-		table.freeze(tbl)
-	end
-
-	return tbl
-end
+GeneralUtil.deepFreeze = deepFreeze
 
 function GeneralUtil.bindToRenderStep(name: string, priority: number, func: (deltaTime: number) -> ())
-   RunService:BindToRenderStep(name, priority, func)
+	RunService:BindToRenderStep(name, priority, func)
 
-   return {
-      Disconnect = function()
-         RunService:UnbindFromRenderStep(name)
-         warn('dusconnected', name)
-      end
-   }
+	return {
+		Disconnect = function()
+			RunService:UnbindFromRenderStep(name)
+			warn("dusconnected", name)
+		end,
+	}
 end
 
 function GeneralUtil.getPrimaryPart(object: Tool | Model)
-	if object.PrimaryPart then
-		return object.PrimaryPart
+	local primaryPart = object.PrimaryPart
+	while not primaryPart do
+		object:GetPropertyChangedSignal("PrimaryPart"):Wait()
+		primaryPart = object.PrimaryPart
 	end
 
-	object:GetPropertyChangedSignal("PrimaryPart"):Wait()
-	return object.PrimaryPart
+	return primaryPart
 end
 
 function GeneralUtil.secondsToMMSS(seconds: number): string
@@ -86,11 +97,15 @@ end
 	This is resolved at module load-time to eliminate environment branch checks
 	and C-boundary calls (RunService:IsStudio) during hot runtime loops.
 ]]
-GeneralUtil.canDebug = (if IS_STUDIO then function(debug: boolean)
-	return debug
-end else function(_debug: boolean)
-		return false
-	end) :: (debug: boolean) -> boolean
+GeneralUtil.canDebug = (
+	if IS_STUDIO
+		then function(debug: boolean)
+			return debug
+		end
+		else function(_debug: boolean)
+			return false
+		end
+) :: (debug: boolean) -> boolean
 
 function GeneralUtil.isDebouncing(key: any, duration: number)
 	if debouncing[key] then
@@ -111,20 +126,21 @@ function GeneralUtil.customCast(
 	params: RaycastParams?,
 	forceFake: boolean?,
 	visualize: boolean?
-): {
-	Instance: Instance?,
-	Normal: Vector3?,
-	Material: Enum.Material,
-	Distance: number,
-	Position: Vector3,
+): CastResult
+	local result: CastResult = {
+		Distance = direction.Magnitude,
+		Instance = nil,
+		Material = Enum.Material.Air,
+		Normal = nil,
+		Position = origin + direction,
 	}
-	local result = if not forceFake then workspace:Raycast(origin, direction, params) else nil
-	if not result then
-		result = {
-			Distance = direction.Magnitude,
-			Material = Enum.Material.Air,
-			Position = origin + direction,
-		}
+	local raycastResult = if not forceFake then workspace:Raycast(origin, direction, params) else nil
+	if raycastResult then
+		result.Distance = raycastResult.Distance
+		result.Instance = raycastResult.Instance
+		result.Material = raycastResult.Material
+		result.Normal = raycastResult.Normal
+		result.Position = raycastResult.Position
 	end
 
 	if visualize then
@@ -154,16 +170,16 @@ function GeneralUtil.randomSign(): number
 	return if math.random() < 0.5 then -1 else 1
 end
 
-function GeneralUtil.loadAnimationsList<I>(
+function GeneralUtil.loadAnimationsList<K>(
 	target: Animator,
-	animations: I,
-	props: { [keyof<I>]: {
+	animations: { [K]: string | number },
+	props: { [K]: {
 		Looped: boolean?,
 	} }?
-): { [keyof<I>]: AnimationTrack }
-	props = props or {}
+): { [K]: AnimationTrack }
+	local animationProps: { [K]: { Looped: boolean? } } = props or {}
 
-	local tracks = {}
+	local tracks: { [K]: AnimationTrack } = {}
 	for i, v in next, animations do
 		local a = Instance.new("Animation")
 		a.AnimationId = `rbxassetid://{v}`
@@ -171,9 +187,10 @@ function GeneralUtil.loadAnimationsList<I>(
 		tracks[i] = target:LoadAnimation(a)
 	end
 
-	for i, list in next, props do
-		for name, value in next, list do
-			tracks[i][name] = value
+	for i, animationPropsForTrack in next, animationProps do
+		local track = tracks[i]
+		if track and animationPropsForTrack.Looped ~= nil then
+			track.Looped = animationPropsForTrack.Looped
 		end
 	end
 
@@ -188,10 +205,8 @@ end
 --- @param separator string? -- The delimiter to split on. Defaults to ",".
 --- @return {string} -- A list of normalized dependency entries.
 function GeneralUtil.normalizeDependencyList(str: string, separator: string?)
-	if not separator then
-		separator = ","
-	end
-	return string.split(string.gsub(str, `{separator}%s+`, separator), separator)
+	local delimiter = separator or ","
+	return string.split(string.gsub(str, `{delimiter}%s+`, delimiter), delimiter)
 end
 
 return GeneralUtil

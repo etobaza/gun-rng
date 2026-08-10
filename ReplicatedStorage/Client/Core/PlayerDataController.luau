@@ -16,7 +16,7 @@ local PlayerDataController = {}
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local TasksList = require(ReplicatedStorage.Shared.Classes.TasksList)
-local ProfileTemplate = require(ReplicatedStorage.Shared.Data.ProfileTemplate)
+local ProfileTemplate = require(ReplicatedStorage.Shared.Constants.Data.ProfileTemplate)
 local SimpleRemotes = require(ReplicatedStorage.Shared.Networking.SimpleRemotes)
 
 -------------------------------------------------------------------------------

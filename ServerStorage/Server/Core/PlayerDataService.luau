@@ -11,7 +11,6 @@
    20-02-2026
 ]]
 
-
 const PlayerDataService = {}
 
 const Players = game:GetService("Players")
@@ -22,7 +21,7 @@ const HttpService = game:GetService("HttpService")
 
 const TasksList = require(ReplicatedStorage.Shared.Classes.TasksList)
 const ProfileStore = require(ServerStorage.Packages.ProfileStore)
-const ProfileTemplate = require(ReplicatedStorage.Shared.Data.ProfileTemplate)
+const ProfileTemplate = require(ReplicatedStorage.Shared.Constants.Data.ProfileTemplate)
 const SimpleRemotes = require(ReplicatedStorage.Shared.Networking.SimpleRemotes)
 const GeneralUtil = require(ReplicatedStorage.Shared.Utils.GeneralUtil)
 const PlayersUtil = require(ReplicatedStorage.Shared.Utils.PlayersUtil)
@@ -46,7 +45,9 @@ const MOCK_DATASTORE_USERIDS = {
 -- TYPES
 -------------------------------------------------------------------------------
 
-export type Profile = typeof(ProfileStore.New("", ProfileTemplate.get()):StartSessionAsync(...)) & { DataProxy: ProfileTemplate.Template }
+export type Profile =
+	typeof(ProfileStore.New("", ProfileTemplate.get()):StartSessionAsync(...))
+	& { DataProxy: ProfileTemplate.Template }
 
 export type Data = ProfileTemplate.Template
 

@@ -218,7 +218,10 @@ function InputScreen.createMobileButton(actionId: string, buttonProps: MobileBut
 		end))
 	else
 		cleanupList:Add(button.InputBegan:Connect(function(inputObject: InputObject)
-			if inputObject.UserInputType ~= Enum.UserInputType.Touch and inputObject.UserInputType ~= Enum.UserInputType.MouseButton1 then
+			if
+				inputObject.UserInputType ~= Enum.UserInputType.Touch
+				and inputObject.UserInputType ~= Enum.UserInputType.MouseButton1
+			then
 				return
 			end
 
@@ -226,7 +229,10 @@ function InputScreen.createMobileButton(actionId: string, buttonProps: MobileBut
 		end))
 
 		cleanupList:Add(button.InputEnded:Connect(function(inputObject: InputObject)
-			if inputObject.UserInputType ~= Enum.UserInputType.Touch and inputObject.UserInputType ~= Enum.UserInputType.MouseButton1 then
+			if
+				inputObject.UserInputType ~= Enum.UserInputType.Touch
+				and inputObject.UserInputType ~= Enum.UserInputType.MouseButton1
+			then
 				return
 			end
 

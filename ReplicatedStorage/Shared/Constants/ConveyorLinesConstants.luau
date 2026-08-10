@@ -55,7 +55,7 @@ end
 -- LOGIC
 -------------------------------------------------------------------------------
 
-for i, v in next, MODEL_LINES do
+for _, v in next, MODEL_LINES do
 	modelLineIdLUT[v.Id] = v
 end
 

@@ -41,7 +41,6 @@ end
 -------------------------------------------------------------------------------
 
 if IS_CLIENT then
-	local UIUtil = require(ReplicatedStorage.Client.UI.UIUtil)
 	local ConnectionsList = require(ReplicatedStorage.Shared.Classes.ConnectionsList)
 	local ObjectPool = require(ReplicatedStorage.Shared.Classes.ObjectPool)
 

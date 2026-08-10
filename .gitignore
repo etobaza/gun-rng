@@ -2,9 +2,5 @@
 *.rbxl.lock
 *.rbxl
 
-# Rojo project generated sourcemap
+# Generated tool output
 sourcemap.json
-
-# Local Rojo sync & cache files
-.rojo/
-.customsync.json

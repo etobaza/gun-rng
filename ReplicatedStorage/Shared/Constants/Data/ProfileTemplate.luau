@@ -1,12 +1,9 @@
 local ProfileTemplate = {}
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local ServerStorage = game:GetService("ServerStorage")
 
 local EconomyConstants = require(ReplicatedStorage.Shared.Constants.EconomyConstants)
 local EquipmentConstants = require(ReplicatedStorage.Shared.Constants.EquipmentConstants)
-local CRC32C = require(ReplicatedStorage.Shared.Hashing.CRC32C)
-local BufferUtil = require(ReplicatedStorage.Shared.Utils.BufferUtil)
 
 -------------------------------------------------------------------------------
 -- TYPES

@@ -138,14 +138,6 @@ function InstanceUtil.connectInstanceAddedByTag<T>(tag: string, handler: (instan
 	return CollectionService:GetInstanceAddedSignal(tag):Connect(handler)
 end
 
-function InstanceUtil.connectChildAdded(instance: Instance, handler: (child: Instance) -> ()): RBXScriptConnection
-	for _, v in instance:GetChildren() do
-		task.spawn(handler, v)
-	end
-
-	return instance.ChildAdded:Connect(handler)
-end
-
 function InstanceUtil.connectInstanceRemovedByTag<T>(tag: string, handler: (instance: T) -> ()): RBXScriptConnection
 	return CollectionService:GetInstanceRemovedSignal(tag):Connect(handler)
 end

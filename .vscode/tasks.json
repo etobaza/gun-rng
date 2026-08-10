@@ -1,21 +1,38 @@
 {
-  "version": "2.0.0",
-  "tasks": [
-    {
-      "label": "Load Package Types",
-      "type": "shell",
-      "command": "wally install; rojo sourcemap default.project.json --output sourcemap.json; wally-package-types --sourcemap sourcemap.json Packages/; wally-package-types --sourcemap sourcemap.json ServerPackages/",
-      "group": {
-        "kind": "build",
-        "isDefault": true
+   "version": "2.0.0",
+   "tasks": [
+      {
+         "label": "Install Rokit Tools",
+         "type": "process",
+         "command": "rokit",
+         "args": ["install"],
+         "problemMatcher": []
       },
-      "problemMatcher": [],
-      "presentation": {
-        "echo": true,
-        "reveal": "always",
-        "focus": false,
-        "panel": "shared"
+      {
+         "label": "Generate Sourcemap",
+         "type": "process",
+         "command": "powershell.exe",
+         "args": [
+            "-NoProfile",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-File",
+            ".vscode/generate-sourcemap.ps1"
+         ],
+         "problemMatcher": []
+      },
+      {
+         "label": "Setup Project Toolchain",
+         "dependsOrder": "sequence",
+         "dependsOn": [
+            "Install Rokit Tools",
+            "Generate Sourcemap"
+         ],
+         "group": {
+            "kind": "build",
+            "isDefault": true
+         },
+         "problemMatcher": []
       }
-    }
-  ]
+   ]
 }

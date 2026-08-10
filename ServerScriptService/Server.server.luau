@@ -16,8 +16,9 @@ local SERVER = ServerStorage.Server
 do
 	-- This fixes the "Write Marshalled" freeze bug
 	if RunService:IsStudio() then
-		for i = 1, 10 do
-			local s = Instance.new("Script", workspace)
+		for _ = 1, 10 do
+			local s = Instance.new("Script")
+			s.Parent = workspace
 			task.delay(math.random(20, 30) / 10, s.Destroy, s)
 		end
 	end

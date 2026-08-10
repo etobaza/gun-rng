@@ -72,7 +72,7 @@ end
 -------------------------------------------------------------------------------
 
 function DailyRewardsService.init()
-	PlayerDataService.ProfileAddedTasks:Add(function(player, data)
+	PlayerDataService.ProfileAddedTasks:Add(function(_player, data)
 		-- RETURN: Daily reward isn't claimed yet
 		if data.DailyRewards.LastClaim == 0 then
 			return

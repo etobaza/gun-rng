@@ -13,7 +13,6 @@
 
 local SoundController = {}
 
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local SoundService = game:GetService("SoundService")
 
 -------------------------------------------------------------------------------
@@ -25,7 +24,7 @@ local SoundService = game:GetService("SoundService")
 -------------------------------------------------------------------------------
 
 type SoundData = {
-   Pitch: number?
+	Pitch: number?,
 }
 
 -------------------------------------------------------------------------------
@@ -33,7 +32,7 @@ type SoundData = {
 -------------------------------------------------------------------------------
 
 local soundsLUT: { [string]: Sound } = {}
-local soundBundles: { [string]: { string } } = {} 
+local soundBundles: { [string]: { string } } = {}
 
 -------------------------------------------------------------------------------
 -- PUBLIC VARIABLES
@@ -48,7 +47,7 @@ local soundBundles: { [string]: { string } } = {}
 -------------------------------------------------------------------------------
 
 function SoundController.play(name: string, soundData: SoundData?)
-   soundData = soundData or {}
+	soundData = soundData or {}
 
 	local sound = soundsLUT[name]
 	if not sound then
@@ -60,10 +59,10 @@ function SoundController.play(name: string, soundData: SoundData?)
 end
 
 function SoundController.playFromBundle(bundleName: string, soundData: SoundData?)
-   const bundle = soundBundles[bundleName]
-   assert(bundle, `Bundle '{bundleName}' doesn't exist`)
+	const bundle = soundBundles[bundleName]
+	assert(bundle, `Bundle '{bundleName}' doesn't exist`)
 
-   SoundController.play(bundle[math.random(#bundle)], soundData)
+	SoundController.play(bundle[math.random(#bundle)], soundData)
 end
 
 -------------------------------------------------------------------------------
@@ -75,16 +74,16 @@ function SoundController.init()
 		soundsLUT[v.Name] = v
 	end
 
-   for _, v in next, SoundService:QueryDescendants("Folder") :: {Folder} do
-      const sounds = {}
-      for _, s in next, v:QueryDescendants("Sound") :: {Sound} do
-         table.insert(sounds, s.Name)
-      end
+	for _, v in next, SoundService:QueryDescendants("Folder") :: { Folder } do
+		const sounds = {}
+		for _, s in next, v:QueryDescendants("Sound") :: { Sound } do
+			table.insert(sounds, s.Name)
+		end
 
-      if #sounds>0 then
-         soundBundles[v.Name] = sounds
-      end
-   end
+		if #sounds > 0 then
+			soundBundles[v.Name] = sounds
+		end
+	end
 end
 
 -- function SoundController.start() end

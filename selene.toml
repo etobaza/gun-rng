@@ -1,0 +1,6 @@
+std = "roblox"
+
+exclude = [
+    "ReplicatedStorage/Shared/Packages/**",
+    "ServerStorage/Packages/**",
+]

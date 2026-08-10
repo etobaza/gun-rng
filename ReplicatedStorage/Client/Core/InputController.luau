@@ -104,7 +104,7 @@ local function removeInputFromActionId(binding: Binding, actionId: string)
 end
 
 local function inputObjectToBinding(inputObject: InputObject): Binding?
-	if inputObject.KeyCode ~= Enum.KeyCode.Unknown then
+	if inputObject.KeyCode ~= Enum.KeyCode.None then
 		return inputObject.KeyCode
 	end
 

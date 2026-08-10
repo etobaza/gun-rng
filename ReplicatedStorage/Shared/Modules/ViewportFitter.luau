@@ -50,7 +50,7 @@ const update = function(data: VPFData)
 	data.dist = dist
 end
 
-const setCFrame = function(data:VPFData, cf:CFrame, ignoreUpdate: boolean?)
+const setCFrame = function(data:VPFData, cf:CFrame, _ignoreUpdate: boolean?)
 	data.model:PivotTo(cf)
 	data.cf = cf
 	update(data)

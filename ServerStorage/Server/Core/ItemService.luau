@@ -62,7 +62,13 @@ ItemService.ItemAcquiredTasks = TasksList.new() :: TasksList.TasksList<ItemAcqui
 -- PRIVATE FUNCTIONS
 -------------------------------------------------------------------------------
 
-local function dispatchAction(taskList: TasksList.TasksList<any>, eventCode: number, player: Player, itemName: string, amount: number?)
+local function dispatchAction(
+	taskList: TasksList.TasksList<any>,
+	eventCode: number,
+	player: Player,
+	itemName: string,
+	amount: number?
+)
 	local hasAmount = amount ~= nil
 
 	taskList:Execute("parallel", player, itemName, amount)
@@ -175,20 +181,20 @@ local function onProfileAdded(player: Player, data: PlayerDataService.Data, prof
 		end
 	end
 
-   -- Reconcile default unlocked items
-   for itemName, item in ItemConstants.getAllItems() do
-      if item.DefaultUnlocked and item.OwnershipMode == OWNERSHIP_MODES.Permanent then
-         if itemInventory[itemName] ~= true then
-            itemInventory[itemName] = true
-         end
+	-- Reconcile default unlocked items
+	for itemName, item in ItemConstants.getAllItems() do
+		if item.DefaultUnlocked and item.OwnershipMode == OWNERSHIP_MODES.Permanent then
+			if itemInventory[itemName] ~= true then
+				itemInventory[itemName] = true
+			end
 
-         -- Optional: auto-equip default item only if slot is currently empty
-         local slot = item.EquipmentSlot
-         if slot and data.EquippedItems[slot] == nil then
-            data.EquippedItems[slot] = itemName
-         end
-      end
-   end
+			-- Optional: auto-equip default item only if slot is currently empty
+			local slot = item.EquipmentSlot
+			if slot and data.EquippedItems[slot] == nil then
+				data.EquippedItems[slot] = itemName
+			end
+		end
+	end
 
 	playerItemInventories[player] = itemInventory
 end
@@ -198,16 +204,18 @@ local function onProfileRemoved(player: Player)
 end
 
 local function loadItemRemotes()
-   SimpleRemotesUtil.bindRemoteEventActions(itemRemoteEvent, {
-      [EVENT_CODES.Purchase] = function(player: Player, b: buffer)
-         local hash, _offset = BufferUtil.readu32(b, 0)
+	SimpleRemotesUtil.bindRemoteEventActions(itemRemoteEvent, {
+		[EVENT_CODES.Purchase] = function(player: Player, b: buffer)
+			local hash, _offset = BufferUtil.readu32(b, 0)
 
 			local item = ItemConstants.getItemFromHash(hash)
-			if not item then return end -- No item found
+			if not item then
+				return
+			end -- No item found
 
 			ItemService.purchaseItem(player, item.Name)
-      end
-   }, SimpleRemotesUtil.DecodeActionBuffer)
+		end,
+	}, SimpleRemotesUtil.DecodeActionBuffer)
 
 	SimpleRemotesUtil.bindRemoteFunctionActions(itemRemoteFunction, {
 		[FUNCTION_CODES.Get] = function(player: Player)

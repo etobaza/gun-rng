@@ -1,30 +1,38 @@
 {
-    "files.eol": "\n",
-    "editor.semanticHighlighting.enabled": true,
-    "editor.formatOnSave": true,
-    "editor.detectIndentation": false,
-    "editor.tabSize": 3,
-    "js/ts.updateImportsOnFileMove.enabled": "always",
-    "luau-lsp.completion.autocompleteEnd": true,
-    "luau-lsp.fflags.enableNewSolver": true,
-    "luau-lsp.hover.showTableKinds": true,
-    "luau-lsp.studioPlugin.maximumRequestBodySize": "50mb",
-    "luau-lsp.studioPlugin.enabled": true,
-    "luau-lsp.completion.imports.enabled": true,
-    "luau-lsp.sourcemap.rojoProjectFile": "default.project.json",
-    "[json]": {
-        "editor.defaultFormatter": "vscode.json-language-features"
-    },
-    "[lua]": {
-        "editor.defaultFormatter": "JohnnyMorganz.stylua"
-    },
-    "[luau]": {
-        "editor.defaultFormatter": "JohnnyMorganz.stylua"
-    },
-    "search.exclude": {
-        "Packages/**": true,
-        "ServerPackages/**": true
-    },
+   "files.eol": "\n",
+   "editor.semanticHighlighting.enabled": true,
+   "editor.formatOnSave": true,
+   "editor.detectIndentation": false,
+   "editor.tabSize": 3,
+   "js/ts.updateImportsOnFileMove.enabled": "always",
+   "luau-lsp.completion.autocompleteEnd": true,
+   "luau-lsp.completion.imports.enabled": true,
+   "luau-lsp.diagnostics.workspace": true,
+   "luau-lsp.fflags.enableNewSolver": true,
+   "luau-lsp.hover.showTableKinds": true,
+   "luau-lsp.ignoreGlobs": [
+      "**/Packages/_Index/**"
+   ],
+   "luau-lsp.platform.type": "roblox",
+   "luau-lsp.sourcemap.autogenerate": true,
+   "luau-lsp.sourcemap.enabled": true,
+   "luau-lsp.sourcemap.generatorCommand": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File .vscode/generate-sourcemap.ps1",
+   "luau-lsp.sourcemap.useVSCodeWatcher": true,
+   "luau-lsp.studioPlugin.enabled": true,
+   "luau-lsp.studioPlugin.maximumRequestBodySize": "50mb",
+   "selene.run": "onSave",
+   "stylua.disableVersionCheck": true,
    "stylua.targetReleaseVersion": "latest",
-   "stylua.disableVersionCheck": true
+   "[json]": {
+      "editor.defaultFormatter": "vscode.json-language-features"
+   },
+   "[lua]": {
+      "editor.defaultFormatter": "JohnnyMorganz.stylua"
+   },
+   "[luau]": {
+      "editor.defaultFormatter": "JohnnyMorganz.stylua"
+   },
+   "search.exclude": {
+      "**/Packages/_Index/**": true
+   }
 }

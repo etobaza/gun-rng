@@ -72,7 +72,7 @@ local function computeDifference(old: GenericTable, new: GenericTable): Differen
 	return out
 end
 
-local function handleChange<T>(self: Atom<T>, old: T, new: T)
+local function handleChange<T>(self: Atom<T>, old: T, new: GenericTable)
 	local difference = computeDifference(old :: GenericTable, new :: GenericTable)
 	local differenceOld = {}
 	local differenceNew = {}
