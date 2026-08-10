@@ -11,7 +11,8 @@
    "luau-lsp.fflags.enableNewSolver": true,
    "luau-lsp.hover.showTableKinds": true,
    "luau-lsp.ignoreGlobs": [
-      "**/Packages/_Index/**"
+      "**/Packages/_Index/**",
+      "**/ServerStorage/Packages/**"
    ],
    "luau-lsp.platform.type": "roblox",
    "luau-lsp.sourcemap.autogenerate": true,
@@ -33,6 +34,7 @@
       "editor.defaultFormatter": "JohnnyMorganz.stylua"
    },
    "search.exclude": {
-      "**/Packages/_Index/**": true
+      "**/Packages/_Index/**": true,
+      "**/ServerStorage/Packages/**": true
    }
 }
