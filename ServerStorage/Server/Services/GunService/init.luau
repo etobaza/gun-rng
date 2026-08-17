@@ -99,7 +99,6 @@ local function loadGunTool(player: Player, tool: GameTypes.GunModel)
 
 	local gunModule = require(WEAPON_MODULES[tool.Name])() :: GunModule
 	local character = (player.Character or player.CharacterAdded:Wait()) :: GameTypes.R15Character
-	local characterInstanceId = GlobalInstanceService.getId(character)
 	local gunRoot = GeneralUtil.getPrimaryPart(tool)
 
 	local remoteFunction = SimpleRemotes.getFunction("RemoteFunction", tool)

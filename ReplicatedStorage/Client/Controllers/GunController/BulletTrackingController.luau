@@ -37,8 +37,6 @@ local PartUtil = require(ReplicatedStorage.Shared.Utils.PartUtil)
 local EVENT_CODES = RemoteCodes.Guns.Events
 local OWNER_TYPES = BulletTrackingConstants.OwnerTypes
 
-const pointToObjectSpace = CFrame.identity.PointToObjectSpace
-
 local MIN_TRACER_WIDTH = 0.02
 local AIR_DRAG = 0.003
 local MAX_FLIGHT_TIME = 7
@@ -234,7 +232,7 @@ local function onRenderStepped(dT)
 
 		local visualStartPosition = cameraCFrame * trackedBullet.PreviousCameraPosition
 		local visualEndPosition = currentPosition
-		trackedBullet.PreviousCameraPosition = pointToObjectSpace(cameraCFrame, currentPosition)
+		trackedBullet.PreviousCameraPosition = cameraCFrame:PointToObjectSpace(currentPosition)
 
 		local toBulletCFrame = CFrame.lookAt(cameraPosition, visualEndPosition):Inverse()
 		local cp0, cp1 = toBulletCFrame * visualStartPosition, toBulletCFrame * visualEndPosition
@@ -369,7 +367,7 @@ function BulletTrackingController.track(
 		Beam = beam,
 		Caliber = caliber,
 		TracerPixelWidth = tracerPixelWidth,
-		PreviousCameraPosition = pointToObjectSpace(camera.CFrame, position),
+		PreviousCameraPosition = camera.CFrame:PointToObjectSpace(position),
 
 		OnImpactHandler = onImpactHandler,
 

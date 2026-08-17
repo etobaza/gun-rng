@@ -28,8 +28,12 @@ do
 	-- Load interfaces
 	local interfaces = Instance.new("Folder")
 	interfaces.Name = "__INTERFACES"
-	for _, v in next, StarterGui:QueryDescendants("ScreenGui") do v.Parent = interfaces end
-   for _,v in next,StarterGui:QueryDescendants(":not(ScreenGui)") do v:Destroy() end
+	for _, v in next, StarterGui:QueryDescendants("ScreenGui") do
+		v.Parent = interfaces
+	end
+	for _, v in next, StarterGui:QueryDescendants(":not(ScreenGui)") do
+		v:Destroy()
+	end
 	interfaces.Parent = ReplicatedStorage
 
 	-- Require modules

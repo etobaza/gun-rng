@@ -32,7 +32,6 @@ local EQUIPMENT_SLOTS = EquipmentConstants.Slots
 local WEAPON_MODULES = ReplicatedStorage.Shared.Weapons
 
 local IDENTITY_CF = CFrame.identity
-local HPI = math.pi / 2
 
 -------------------------------------------------------------------------------
 -- TYPES

@@ -126,7 +126,8 @@ const localMagazinesVelocityCache = {}
 local rng = Random.new()
 local scheduler = Scheduler.new()
 
-local casingsFolder = Instance.new("Folder", workspace.Terrain)
+local casingsFolder = Instance.new("Folder")
+casingsFolder.Parent = workspace.Terrain
 local casingPools = {}
 
 local muzzleFlashPool = ObjectPool.new(assets.GunVisuals.MuzzleFlash, 100, "MuzzleFlashes")
@@ -381,7 +382,6 @@ local function initializeGunTool(tool: GunTool)
 	local rightArm, rightArmM6D = tool["Right Arm"], gunBody["Right Arm"]
 
 	local carryHandleM6D = gunBody:FindFirstChild("Handle") :: Motor6D?
-	local carryHandleAddedCFrame = IDENTITY_CF
 
 	local fakeLeftArm = fakeFPVArms["Left Arm"]
 	local fakeRightArm = fakeFPVArms["Right Arm"]
@@ -566,12 +566,22 @@ local function initializeGunTool(tool: GunTool)
 			end
 
 			if loadsRounds then
-				if animationTracks.ReloadStart then animationTracks.ReloadStart:Stop() end
-				if animationTracks.ReloadRound then animationTracks.ReloadRound:Stop() end
-				if animationTracks.ReloadFinish then animationTracks.ReloadFinish:Stop() end
+				if animationTracks.ReloadStart then
+					animationTracks.ReloadStart:Stop()
+				end
+				if animationTracks.ReloadRound then
+					animationTracks.ReloadRound:Stop()
+				end
+				if animationTracks.ReloadFinish then
+					animationTracks.ReloadFinish:Stop()
+				end
 			else
-				if animationTracks.Reload then animationTracks.Reload:Stop() end
-				if animationTracks.EmptyReload then animationTracks.EmptyReload:Stop() end
+				if animationTracks.Reload then
+					animationTracks.Reload:Stop()
+				end
+				if animationTracks.EmptyReload then
+					animationTracks.EmptyReload:Stop()
+				end
 			end
 
 			updateAmmoUI()
@@ -627,14 +637,18 @@ local function initializeGunTool(tool: GunTool)
 							lastTime = os.clock()
 						end
 						const remaining = timestamps.MagOut - sampleTime
-						if remaining > 0 then task.wait(remaining) end
+						if remaining > 0 then
+							task.wait(remaining)
+						end
 					else
 						task.wait(timestamps.MagOut)
 					end
 
 					local throwVelocity = Vector3.zero
 					if cachedLocalVelocity then
-						if gunRoot then throwVelocity = gunRoot.CFrame:VectorToWorldSpace(cachedLocalVelocity) end
+						if gunRoot then
+							throwVelocity = gunRoot.CFrame:VectorToWorldSpace(cachedLocalVelocity)
+						end
 					elseif lastLocalPos and lastTime and magazine and gunRoot then
 						const currentLocalPos = gunRoot.CFrame:PointToObjectSpace(magazine.Position)
 						const dt = os.clock() - lastTime
@@ -658,15 +672,23 @@ local function initializeGunTool(tool: GunTool)
 
 					clone.Name = "MagazineClone"
 					clone.Parent = workspace.Terrain
-					scheduler:Add(10, function() if clone then clone:Destroy() end end)
+					scheduler:Add(10, function()
+						if clone then
+							clone:Destroy()
+						end
+					end)
 
 					const remainingToMagIn = timestamps.MagIn - timestamps.MagOut
-					if remainingToMagIn > 0 then task.wait(remainingToMagIn) end
+					if remainingToMagIn > 0 then
+						task.wait(remainingToMagIn)
+					end
 
 					magazine.Transparency = 0
 
 					const remainingToFinish = reloadAnimation.Length - timestamps.MagIn
-					if remainingToFinish > 0 then task.wait(remainingToFinish) end
+					if remainingToFinish > 0 then
+						task.wait(remainingToFinish)
+					end
 				else
 					task.wait(reloadAnimation.Length)
 				end
