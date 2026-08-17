@@ -109,7 +109,26 @@ function Convert-SourceDirectory {
    )
 
    Assert-NotReparsePoint -Item $Directory
-   $node = New-TreeNode -Name $Directory.Name -ClassName $ClassName
+
+   $sourceFiles = Get-ChildItem -LiteralPath $Directory.FullName -File -Force |
+   Where-Object { $_.Extension -in ".lua", ".luau" } |
+   Sort-Object @{ Expression = { $_.Name.ToUpperInvariant() } }, @{ Expression = { $_.Name } }
+
+   $initFiles = @($sourceFiles | Where-Object { $_.Name -in "init.lua", "init.luau" })
+   if ($initFiles.Count -gt 1) {
+      throw "Directory has more than one init module: $($Directory.FullName)"
+   }
+
+   $initFile = if ($initFiles.Count -eq 1) { $initFiles[0] } else { $null }
+   $nodeClassName = $ClassName
+   if ($ClassName -eq "Folder" -and $null -ne $initFile) {
+      $nodeClassName = "ModuleScript"
+   }
+
+   $node = New-TreeNode -Name $Directory.Name -ClassName $nodeClassName
+   if ($null -ne $initFile) {
+      $node.filePaths = @(Get-ProjectRelativePath -FullPath $initFile.FullName)
+   }
 
    $childDirectories = Get-ChildItem -LiteralPath $Directory.FullName -Directory -Force |
    Sort-Object @{ Expression = { $_.Name.ToUpperInvariant() } }, @{ Expression = { $_.Name } }
@@ -126,11 +145,10 @@ function Convert-SourceDirectory {
       Add-ChildNode -Parent $node -Child $childNode -Context $Directory.FullName
    }
 
-   $sourceFiles = Get-ChildItem -LiteralPath $Directory.FullName -File -Force |
-   Where-Object { $_.Extension -in ".lua", ".luau" } |
-   Sort-Object @{ Expression = { $_.Name.ToUpperInvariant() } }, @{ Expression = { $_.Name } }
-
    foreach ($sourceFile in $sourceFiles) {
+      if ($null -ne $initFile -and $sourceFile.FullName -eq $initFile.FullName) {
+         continue
+      }
       Assert-NotReparsePoint -Item $sourceFile
       $identity = Get-ScriptIdentity -SourceFile $sourceFile
       $scriptNode = [ordered]@{
