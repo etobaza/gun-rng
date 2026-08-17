@@ -23,8 +23,8 @@ local TWEEN_INFO = TweenInfo.new(1, Enum.EasingStyle.Linear, Enum.EasingDirectio
 -- PUBLIC FUNCTIONS
 -------------------------------------------------------------------------------
 
-function WeaponsUtil.isToolAGun(tool: Tool?)
-	return tool:IsA("Tool") and tool:GetAttribute("Slot", SLOTS.Gun)
+function WeaponsUtil.isToolAGun(tool: Instance?): boolean
+	return tool ~= nil and tool:IsA("Tool") and tool:GetAttribute("Slot") == SLOTS.Gun
 end
 
 function WeaponsUtil.getAverageDamage(gunModule: GameTypes.GunModule)

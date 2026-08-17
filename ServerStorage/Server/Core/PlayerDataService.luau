@@ -32,7 +32,7 @@ const PlayersUtil = require(ReplicatedStorage.Shared.Utils.PlayersUtil)
 
 const NON_WIPABLE_INDEXES = { "BanData" }
 
-const DATA_KEY = `GunDealerTycoon.{RunService:IsStudio() and "Dev" or "Live"}`
+const DATA_KEY = `ShootALoot.{RunService:IsStudio() and "Dev" or "Live"}`
 
 -- Mock datastore config
 const USE_MOCK_DATASTORE = GeneralUtil.canDebug(true)
