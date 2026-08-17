@@ -12,7 +12,7 @@ InputConstants.Actions = table.freeze({
 })
 
 InputConstants.DebugActions = table.freeze({
-	ToggleMouseUnlock = "ToggleMouseUnlock",
+	HoldMouseUnlock = "HoldMouseUnlock",
 })
 
 return InputConstants

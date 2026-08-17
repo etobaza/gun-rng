@@ -85,6 +85,14 @@ const slotHandlers: { [Slot]: SlotHandlers } = {
          const gunTool = gunToolTemplate:Clone()
          gunTool:SetAttribute("Slot", SLOTS.Gun)
          gunTool.Parent = player.Backpack
+
+         task.defer(function()
+            local character = player.Character
+            local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+            if humanoid and gunTool.Parent == player.Backpack then
+               humanoid:EquipTool(gunTool)
+            end
+         end)
       end,
 
       Remove = deleteItemFromPlayer,

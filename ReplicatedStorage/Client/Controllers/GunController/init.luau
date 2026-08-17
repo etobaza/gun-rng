@@ -18,9 +18,11 @@ const Players = game:GetService("Players")
 const ReplicatedStorage = game:GetService("ReplicatedStorage")
 const RunService = game:GetService("RunService")
 const SoundService = game:GetService("SoundService")
+const StarterGui = game:GetService("StarterGui")
 const UserInputService = game:GetService("UserInputService")
 
 const GlobalInstanceController = require(ReplicatedStorage.Client.Controllers.GlobalInstanceController)
+const CreatureController = require(ReplicatedStorage.Client.Controllers.CreatureController)
 const BulletTrackingController = require(ReplicatedStorage.Client.Controllers.GunController.BulletTrackingController)
 const MovementController = require(ReplicatedStorage.Client.Controllers.MovementController)
 const InputController = require(ReplicatedStorage.Client.Core.InputController)
@@ -511,6 +513,23 @@ local function initializeGunTool(tool: GunTool)
       --[[
          Actual hit logic begins here
       ]]
+
+      local creatureId = CreatureController.getCreatureId(resultInstance)
+      if creatureId then
+         WeaponsUtil.createHitmarker(resultPosition, Color3.new(1, 1, 1))
+         playImpactSound(true)
+         updateRollingCodeBuffer()
+
+         local damageBuffer, offset = buffer.create(1 + buffer.len(rollingCodeBuffer) + 1 + 4 + 12), 0
+         offset = BufferUtil.writeu8(damageBuffer, offset, EVENT_CODES.Damage)
+         offset = BufferUtil.inject(rollingCodeBuffer, damageBuffer, offset)
+         offset = BufferUtil.writeu8(damageBuffer, offset, OWNER_TYPES.Creature)
+         offset = BufferUtil.writeu32(damageBuffer, offset, creatureId)
+         offset = BufferUtil.writeVector3_96(damageBuffer, offset, resultPosition)
+
+         remoteEvent:FireServer(damageBuffer)
+         return
+      end
 
       local hitPlayer = Players:GetPlayerFromCharacter(resultInstance.Parent)
       if hitPlayer and hitPlayer ~= player then -- A player has been hit
@@ -1426,6 +1445,8 @@ function GunController.init()
       if bodyColors then
          bodyColors:Clone().Parent = fakeFPVArms
       end
+
+      InstanceUtil.connectChildAdded(character, onBackpackChildAdded)
    end)
 
    InstanceUtil.connectChildAdded(player, function(child)
@@ -1438,6 +1459,12 @@ function GunController.init()
    loadCameraEffects()
    registerInputs()
 
+   task.spawn(function()
+      while not pcall(StarterGui.SetCoreGuiEnabled, StarterGui, Enum.CoreGuiType.Backpack, false) do
+         task.wait()
+      end
+   end)
+
    if RunService:IsStudio() then
       task.defer(preloadWeaponAssets)
    end
@@ -1445,16 +1472,15 @@ end
 
 function GunController.test()
    local mouseUnlock = player.PlayerGui.HUD.MouseUnlock
+   mouseUnlock.Visible = false
 
    local wfa = Instance.new("WireframeHandleAdornment")
    wfa.Adornee = workspace.Terrain
    wfa.Parent = workspace.Terrain
    wfa.Color3 = Color3.new(1, 0, 0)
 
-   InputController.registerInput(DEBUG_INPUT_ACTIONS.ToggleMouseUnlock, Enum.KeyCode.LeftAlt, nil, function(state)
-      if state == Enum.UserInputState.Begin then
-         mouseUnlock.Visible = not mouseUnlock.Visible
-      end
+   InputController.registerInput(DEBUG_INPUT_ACTIONS.HoldMouseUnlock, Enum.KeyCode.LeftAlt, nil, function(state)
+      mouseUnlock.Visible = state == Enum.UserInputState.Begin
    end, {
       RequiresHUD = true,
    })

@@ -16,45 +16,59 @@ export type Template = typeof(ProfileTemplate.get())
 -------------------------------------------------------------------------------
 
 function ProfileTemplate.get()
-	local profile = {}
+   local profile = {}
 
-	-------------------------------------------------------------------------------
-	-- PRIVATE VARIABLES
-	-------------------------------------------------------------------------------
+   -------------------------------------------------------------------------------
+   -- PRIVATE VARIABLES
+   -------------------------------------------------------------------------------
 
-	local currencies: { [EconomyConstants.Currency]: number } = { Cash = 9e5, Gems = 0 }
+   local currencies: { [EconomyConstants.Currency]: number } = { Cash = 9e5, Gems = 0 }
 
-	local banData: { BanAmount: number, Pending: {
-		ExecuteAt: number,
-		Duration: number,
-		PrivateReason: string,
-		PublicReason: string,
-	}? } = { BanAmount = 0 }
+   local banData: {
+      BanAmount: number,
+      Pending: {
+         ExecuteAt: number,
+         Duration: number,
+         PrivateReason: string,
+         PublicReason: string,
+      }?,
+   } =
+      { BanAmount = 0 }
 
-	-------------------------------------------------------------------------------
-	-- PUBLIC VARIABLES
-	-------------------------------------------------------------------------------
+   -------------------------------------------------------------------------------
+   -- PUBLIC VARIABLES
+   -------------------------------------------------------------------------------
 
-	profile.DailyRewards = {
-		LastClaim = 0,
-		Streak = 0,
-	}
+   profile.DailyRewards = {
+      LastClaim = 0,
+      Streak = 0,
+   }
 
-	-- Core
-	profile.Currencies = currencies
-	profile.ItemInventory = buffer.create(0)
-	profile.EquippedItems = {} :: { [EquipmentConstants.Slot]: string? }
-	profile.BanData = banData
+   -- Core
+   profile.Currencies = currencies
+   profile.ItemInventory = buffer.create(0)
+   profile.EquippedItems = {} :: { [EquipmentConstants.Slot]: string? }
+   profile.BanData = banData
+   profile.Progression = {
+      World = 1,
+      Upgrades = {
+         Luck = 0,
+         ValueMultiplier = 0,
+         FireRate = 0,
+         Damage = 0,
+         MagazineSize = 0,
+      },
+   }
 
-	-- Services
-	profile.TycoonPurchases = buffer.create(0)
-	profile.StorageWorth = 50
+   -- Services
+   profile.TycoonPurchases = buffer.create(0)
+   profile.StorageWorth = 50
 
-	-------------------------------------------------------------------------------
-	-- LOGIC
-	-------------------------------------------------------------------------------
+   -------------------------------------------------------------------------------
+   -- LOGIC
+   -------------------------------------------------------------------------------
 
-	return profile
+   return profile
 end
 
 warn("Profile Template:", ProfileTemplate.get())

@@ -5,10 +5,11 @@ local UIConstants = {}
 -------------------------------------------------------------------------------
 
 UIConstants.States = {
-	HUD = "HUD",
-	Store = "Store",
-	SpawnPad = "SpawnPad",
-	Armory = "Armory",
+   HUD = "HUD",
+   Store = "Store",
+   SpawnPad = "SpawnPad",
+   Armory = "Armory",
+   Sell = "Sell",
 }
 
 UIConstants.BaseState = UIConstants.States.HUD

@@ -22,6 +22,7 @@ local WeaponConstants = require(ReplicatedStorage.Shared.Constants.WeaponConstan
 local GameTypes = require(ReplicatedStorage.Shared.GameTypes)
 local BanService = require(ServerStorage.Server.Core.BanService)
 local GlobalInstanceService = require(ServerStorage.Server.Services.GlobalInstanceService)
+local CreatureService = require(ServerStorage.Server.Services.CreatureService)
 local BulletTrackingService = require(ServerStorage.Server.Services.GunService.BulletTrackingService)
 local RemoteCodes = require(ReplicatedStorage.Shared.Networking.RemoteCodes)
 local SimpleRemotes = require(ReplicatedStorage.Shared.Networking.SimpleRemotes)
@@ -46,12 +47,23 @@ local GUN_ACTIONS = WeaponConstants.GunActions
 local OWNER_TYPES = BulletTrackingConstants.OwnerTypes
 
 local ROLLING_CODE_BYTES = 20 -- Offset by N, because this is the length of the RC with the additional characters
+local FIRE_RATE_TOLERANCE = 0.03
+local CREATURE_SHOT_LIFETIME = 8
+local CREATURE_SHOT_DIRECTION_COSINE = math.cos(math.rad(12))
+local CREATURE_SHOT_DISTANCE_TOLERANCE = 20
+local MAX_CREATURE_SHOT_CREDITS = 256
 
 -------------------------------------------------------------------------------
 -- TYPES
 -------------------------------------------------------------------------------
 
 export type GunModule = typeof(require(ReplicatedStorage.Shared.Weapons.M1911)())
+
+type CreatureShotCredit = {
+   CreatedAt: number,
+   Origin: Vector3,
+   Velocity: Vector3,
+}
 
 -------------------------------------------------------------------------------
 -- PRIVATE VARIABLES
@@ -116,6 +128,10 @@ local function loadGunTool(player: Player, tool: GameTypes.GunModel)
    local currentAmmo = gunModule.MagazineSize
    local offsets = gunModule.Offsets
    local gunAction = gunModule.Action
+   local fireInterval = 60 / gunModule.Firerate
+   local lastShotAt = -math.huge
+   local creatureShotCredits: { CreatureShotCredit } = {}
+   local expectedExitNode = tool.Nodes.Exit
 
    AnimationJointUtil.createKinematic(
       "RootConstraint",
@@ -155,6 +171,36 @@ local function loadGunTool(player: Player, tool: GameTypes.GunModel)
       return not same
    end
 
+   local function consumeCreatureShotCredit(hitPosition: Vector3): Vector3?
+      local now = workspace:GetServerTimeNow()
+      local index = 1
+
+      while index <= #creatureShotCredits do
+         local credit = creatureShotCredits[index]
+         local age = now - credit.CreatedAt
+         if age > CREATURE_SHOT_LIFETIME then
+            table.remove(creatureShotCredits, index)
+            continue
+         end
+
+         local toHit = hitPosition - credit.Origin
+         local distance = toHit.Magnitude
+         local directionMatches = distance <= 0
+            or credit.Velocity.Unit:Dot(toHit.Unit) >= CREATURE_SHOT_DIRECTION_COSINE
+         local distanceMatches = distance
+            <= credit.Velocity.Magnitude * math.max(0, age) + CREATURE_SHOT_DISTANCE_TOLERANCE
+
+         if directionMatches and distanceMatches then
+            table.remove(creatureShotCredits, index)
+            return credit.Origin
+         end
+
+         index += 1
+      end
+
+      return nil
+   end
+
    --[[
       Connect remote function and event
    ]]
@@ -190,8 +236,12 @@ local function loadGunTool(player: Player, tool: GameTypes.GunModel)
             return
          end
 
-         currentAmmo -= 1
-         if currentAmmo < 0 then
+         local shotReceivedAt = os.clock()
+         if shotReceivedAt + FIRE_RATE_TOLERANCE < lastShotAt + fireInterval then
+            return
+         end
+
+         if currentAmmo <= 0 then
             BanService.ban(player, {
                BaseDuration = BanService.Times.Week,
                PrivateReason = "Shooting without ammo",
@@ -205,16 +255,50 @@ local function loadGunTool(player: Player, tool: GameTypes.GunModel)
          pelletAmount, offset = BufferUtil.readu8(b, offset)
 
          local exitNode = GlobalInstanceService.getInstance(exitNodeId) :: BasePart?
-         if not exitNode then
+         if not exitNode or exitNode ~= expectedExitNode or pelletAmount ~= gunModule.Pellets then
             return
          end
 
-         -- Read pellets & schedule bullet tracks
          local pelletVelocities = table.create(pelletAmount)
+         local baseMuzzleVelocity = gunModule.MuzzleVelocity
+         local minimumMuzzleVelocity = if type(baseMuzzleVelocity) == "table"
+            then baseMuzzleVelocity[1]
+            else baseMuzzleVelocity
+         local maximumMuzzleVelocity = if type(baseMuzzleVelocity) == "table"
+            then baseMuzzleVelocity[2]
+            else baseMuzzleVelocity
+         local characterVelocity = character.PrimaryPart.AssemblyLinearVelocity
+
          for pelletIndex = 1, pelletAmount do
             local pelletVelocity
             pelletVelocity, offset = BufferUtil.readVector3_96(b, offset)
+
+            local relativeSpeed = (pelletVelocity - characterVelocity).Magnitude
+            if
+               relativeSpeed ~= relativeSpeed
+               or relativeSpeed < minimumMuzzleVelocity * 0.75
+               or relativeSpeed > maximumMuzzleVelocity * 1.25 + 50
+            then
+               return
+            end
+
             pelletVelocities[pelletIndex] = pelletVelocity
+         end
+
+         currentAmmo -= 1
+         lastShotAt = shotReceivedAt
+
+         local shotCreatedAt = workspace:GetServerTimeNow()
+         while #creatureShotCredits + #pelletVelocities > MAX_CREATURE_SHOT_CREDITS do
+            table.remove(creatureShotCredits, 1)
+         end
+
+         for _, pelletVelocity in pelletVelocities do
+            table.insert(creatureShotCredits, {
+               CreatedAt = shotCreatedAt,
+               Origin = exitNode.Position,
+               Velocity = pelletVelocity,
+            })
          end
 
          BulletTrackingService.replicateShot(
@@ -247,8 +331,24 @@ local function loadGunTool(player: Player, tool: GameTypes.GunModel)
             return
          end
 
-         local ownerType, hitCharacterInstanceId, hitInstanceId
+         local ownerType
          ownerType, offset = BufferUtil.readu8(b, offset)
+
+         if ownerType == OWNER_TYPES.Creature then
+            local creatureId, hitPosition
+            creatureId, offset = BufferUtil.readu32(b, offset)
+            hitPosition, offset = BufferUtil.readVector3_96(b, offset)
+
+            local shotOrigin = consumeCreatureShotCredit(hitPosition)
+            if not shotOrigin then
+               return
+            end
+
+            CreatureService.damage(player, creatureId, gunModule.Damage.Upper, hitPosition, shotOrigin)
+            return
+         end
+
+         local hitCharacterInstanceId, hitInstanceId
          hitCharacterInstanceId, offset = BufferUtil.readu32(b, offset)
          hitInstanceId, offset = BufferUtil.readu32(b, offset)
 

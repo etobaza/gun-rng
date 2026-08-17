@@ -5,7 +5,7 @@
 The repository mirrors Roblox DataModel services on disk. `.vscode/generate-sourcemap.ps1` converts those directories into `sourcemap.json` for Luau Language Server resolution. Regenerate the sourcemap after adding, removing, or renaming source files; do not edit the generated JSON by hand.
 
 - `StarterPlayer/StarterPlayerScripts/Client.local.luau` is the client bootstrap. It clones the server-staged interfaces into `PlayerGui`, requires client modules in `Core`, `Controllers`, then `UI` order, and invokes their `init`, `start`, and Studio-only `test` hooks.
-- `ServerScriptService/Server.server.luau` is the server bootstrap. It stages `StarterGui` interfaces in `ReplicatedStorage`, requires server modules in `Core` then `Services` order, and invokes the same lifecycle hooks.
+- `ServerScriptService/Server.server.luau` is the server bootstrap. It validates and stages the `StarterGui.GameGUIs` package interfaces in `ReplicatedStorage`, requires server modules in `Core` then `Services` order, and invokes the same lifecycle hooks.
 - `ReplicatedStorage/Client` contains client-only state, presentation, input, UI, and gameplay controllers.
 - `ServerStorage/Server/Core` owns authoritative player data and foundational game systems such as characters, items, equipment, economy, products, collision, bans, rewards, and shutdown saves.
 - `ServerStorage/Server/Services` owns server gameplay features that build on the core systems. Gun validation, shot replication, and global instance IDs live here.
@@ -17,8 +17,23 @@ The repository mirrors Roblox DataModel services on disk. `.vscode/generate-sour
 - Shared modules must not depend on client-only or server-only modules. Runtime-specific adapters belong under `ReplicatedStorage/Client` or `ServerStorage/Server`.
 - `Core` modules provide foundational state and lifecycle behavior. Feature-specific orchestration belongs in `Controllers` on the client and `Services` on the server.
 - Gun responsibilities are split deliberately: `GunController` handles the local weapon lifecycle and presentation, `GunReplicationController` renders other players' weapons, and `BulletTrackingController` simulates local tracer visuals. `GunService` validates gun requests, while `BulletTrackingService` batches server-authorized shot replication.
+- The Studio-only `HUD.MouseUnlock` modal is hold-to-use with Left Alt and must initialize hidden; while visible, it intentionally consumes mouse firing and camera input.
 - Character equipment restoration must wait until `ItemService` has reconciled the player's inventory and default equipped items. Spawn callbacks must also verify that they still belong to the player's current character before cloning tools.
 - Global instance references cross the network through `GlobalInstanceService` and `GlobalInstanceController`; consumers should use that mapping instead of inventing parallel instance-ID registries.
+
+## Creature, loot, and selling loop
+
+- `CreatureService` owns per-player creature records, health, lifetime, mutation rolls, hit validation, and loot rewards. Creatures do not exist as server NPC instances.
+- `CreatureController` renders only the local player's targets from the shared snapshots. `CreatureUtil` evaluates deterministic movement from server time, so the server can validate hits without replicating moving target instances.
+- `CreatureProtocol` is the binary contract for creature snapshots and lifecycle updates. Creature damage extends the existing gun damage action with the append-only `Creature` owner type.
+- A creature hit is accepted only when it consumes a recent server-approved pellet and passes direction, travel-time, range, expected-position, expiry, and world-obstruction checks.
+- `LootConstants` owns rarity order, drop weights, luck scaling, display metadata, and sell values. Loot entries are registered as non-purchasable consumables in `ItemConstants`, so `ItemService` remains the single persistent stack inventory.
+- `SellService` owns sell valuation and inventory consumption. Sell requests require proximity to `Workspace.World.SellStand.Interaction`; clients never submit prices or quantities.
+- All player-facing `ScreenGui` assets, including `SellUI` and `LootHUD`, are authored inside the `StarterGui.GameGUIs` package. Their screen modules bind behavior after the bootstrap stages them directly under `PlayerGui` and must not construct replacement UI trees at runtime.
+- The equipped gun is automatically activated by `EquipmentToolService`, and `GunController` disables Roblox's default Backpack UI. Future Guns stand switching must continue through the equipment slot rather than exposing weapon hotbar selection.
+- `ProfileTemplate.Progression` is the persistent extension point for the current world and Luck, Value Multiplier, Fire Rate, Damage, and Magazine Size upgrade levels.
+
+The current vertical slice covers shooting creatures, receiving stackable loot, and selling all loot for Cash. Index discovery, upgrades purchasing, world portals, loot equipment/display, fusion, plots/trading, aim assist, and opt-in autofire should build on these boundaries rather than introduce parallel inventories, currencies, or damage paths.
 
 ## Animation joints and AJU
 
