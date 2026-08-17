@@ -68,7 +68,6 @@ function GeneralUtil.bindToRenderStep(name: string, priority: number, func: (del
 	return {
 		Disconnect = function()
 			RunService:UnbindFromRenderStep(name)
-			warn("dusconnected", name)
 		end,
 	}
 end

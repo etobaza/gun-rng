@@ -1039,7 +1039,7 @@ local function initializeGunTool(tool: GunTool)
 				carryHandleM6D.C1 *= carryHandleAddedCFrame
 			end]]
 
-			targetCFrame *= workspace.CFrameEditor.Value
+			targetCFrame *= workspace.World.CFrameEditor.Value
 			targetCFrame *= CFrame.fromOrientation(recoilOrientation.X, recoilOrientation.Y, recoilOrientation.Z + recoilRoll) + recoilPosition
 			gunRoot.CFrame = targetCFrame
 

@@ -69,7 +69,7 @@ local function onCharacterAdded(character: Model)
 	local hitbox = PartUtil.createHitbox(character)
 	hitbox.CanQuery = false -- This hitbox isn't for raycasts
 
-	character.Parent = workspace.Characters
+	character.Parent = workspace.World.Characters
 
 	local humanoid = character:WaitForChild("Humanoid") :: Humanoid
 	humanoid.AutoRotate = false

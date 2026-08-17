@@ -205,7 +205,7 @@ function CharacterController.init()
 	loadRemotes()
 
 	RunService.PreSimulation:Connect(onPreSimulation)
-	workspace.Characters.ChildRemoved:Connect(onAnyCharacterRemoved)
+	workspace.World.Characters.ChildRemoved:Connect(onAnyCharacterRemoved)
 	Players.PlayerRemoving:Connect(onPlayerRemoving)
 
 	GunController.GunEquipped:Connect(function(_, gunModule)
