@@ -36,5 +36,6 @@
    "search.exclude": {
       "**/Packages/_Index/**": true,
       "**/ServerStorage/Packages/**": true
-   }
+   },
+   "luau-lsp.studioPlugin.port": 3668
 }
