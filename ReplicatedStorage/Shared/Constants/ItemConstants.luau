@@ -4,6 +4,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local EconomyConstants = require(ReplicatedStorage.Shared.Constants.EconomyConstants)
 local EquipmentConstants = require(ReplicatedStorage.Shared.Constants.EquipmentConstants)
+local LootConstants = require(ReplicatedStorage.Shared.Constants.LootConstants)
 local CRC32C = require(ReplicatedStorage.Shared.Hashing.CRC32C)
 
 -------------------------------------------------------------------------------
@@ -22,16 +23,21 @@ export type Category = keyof<typeof(ItemConstants.Categories)>
 export type OwnershipMode = keyof<typeof(ItemConstants.OwnershipModes)>
 
 export type ItemBase = {
-	Name: string,
-	DisplayName: string,
-	Category: Category,
-	OwnershipMode: OwnershipMode,
-	Price: EconomyConstants.Price,
-	EquipmentSlot: EquipmentConstants.Slot?,
-	DefaultUnlocked: boolean?,
+   Name: string,
+   DisplayName: string,
+   Category: Category,
+   OwnershipMode: OwnershipMode,
+   Price: EconomyConstants.Price,
+   EquipmentSlot: EquipmentConstants.Slot?,
+   DefaultUnlocked: boolean?,
+   Purchasable: boolean?,
+   Loot: {
+      Rarity: LootConstants.Rarity,
+      SellValue: number,
+   }?,
 
-	Description: string?,
-	Icon: string?,
+   Description: string?,
+   Icon: string?,
 }
 
 -------------------------------------------------------------------------------
@@ -39,15 +45,16 @@ export type ItemBase = {
 -------------------------------------------------------------------------------
 
 local categories = {
-	Car = "Car",
-	Skin = "Skin",
-	Cosmetic = "Cosmetic",
-	Gun = "Gun",
+   Car = "Car",
+   Skin = "Skin",
+   Cosmetic = "Cosmetic",
+   Gun = "Gun",
+   Loot = "Loot",
 }
 
 local ownershipModes = {
-	Permanent = "Permanent",
-	Consumable = "Consumable",
+   Permanent = "Permanent",
+   Consumable = "Consumable",
 }
 
 local itemsByCategory: { [Category]: { [string]: ItemBase } } = {}
@@ -55,56 +62,56 @@ local itemsByHash: { [number]: ItemBase } = {}
 local itemsToHash: { [string]: number } = {}
 
 local itemsByName: { [string]: ItemBase } = {
-	-- Cars
-	Test = {
-		Name = "Test",
-		DisplayName = "Test Car",
-		Category = categories.Car,
-		OwnershipMode = ownershipModes.Permanent,
-		Price = { Currency = CURRENCIES.Free },
-		Description = "Placeholder car for spawn and handling tests.",
-	},
+   -- Cars
+   Test = {
+      Name = "Test",
+      DisplayName = "Test Car",
+      Category = categories.Car,
+      OwnershipMode = ownershipModes.Permanent,
+      Price = { Currency = CURRENCIES.Free },
+      Description = "Placeholder car for spawn and handling tests.",
+   },
 
-	Lada = {
-		Name = "Lada",
-		DisplayName = "Lada",
-		Category = categories.Car,
-		OwnershipMode = ownershipModes.Permanent,
-		Price = { Currency = CURRENCIES.Free },
-		Description = "Soviet sedan: slow, loud, oddly dependable.",
-	},
+   Lada = {
+      Name = "Lada",
+      DisplayName = "Lada",
+      Category = categories.Car,
+      OwnershipMode = ownershipModes.Permanent,
+      Price = { Currency = CURRENCIES.Free },
+      Description = "Soviet sedan: slow, loud, oddly dependable.",
+   },
 
-	-- Guns
-	["M1911"] = {
-		Name = "M1911",
-		DisplayName = "M1911",
-		Category = categories.Gun,
-		EquipmentSlot = EQUIPMENT_SLOTS.Gun,
-		OwnershipMode = ownershipModes.Permanent,
-		Price = { Currency = CURRENCIES.Free },
-		DefaultUnlocked = true,
-		Description = "Classic .45 starter pistol, free forever.",
-	},
+   -- Guns
+   ["M1911"] = {
+      Name = "M1911",
+      DisplayName = "M1911",
+      Category = categories.Gun,
+      EquipmentSlot = EQUIPMENT_SLOTS.Gun,
+      OwnershipMode = ownershipModes.Permanent,
+      Price = { Currency = CURRENCIES.Free },
+      DefaultUnlocked = true,
+      Description = "Classic .45 starter pistol, free forever.",
+   },
 
-	["AK-103"] = {
-		Name = "AK-103",
-		DisplayName = "AK-103",
-		Category = categories.Gun,
-		EquipmentSlot = EQUIPMENT_SLOTS.Gun,
-		OwnershipMode = ownershipModes.Permanent,
-		Price = { Currency = CURRENCIES.Cash, Amount = 10_000 },
-		Description = "Tactical AK",
-	},
+   ["AK-103"] = {
+      Name = "AK-103",
+      DisplayName = "AK-103",
+      Category = categories.Gun,
+      EquipmentSlot = EQUIPMENT_SLOTS.Gun,
+      OwnershipMode = ownershipModes.Permanent,
+      Price = { Currency = CURRENCIES.Cash, Amount = 10_000 },
+      Description = "Tactical AK",
+   },
 
-	["SPAS-12"] = {
-		Name = "SPAS-12",
-		DisplayName = "SPAS-12",
-		Category = categories.Gun,
-		EquipmentSlot = EQUIPMENT_SLOTS.Gun,
-		OwnershipMode = ownershipModes.Permanent,
-		Price = { Currency = CURRENCIES.Cash, Amount = 25_000 },
-		Description = "Heavy pump shotgun for close-range work.",
-	},
+   ["SPAS-12"] = {
+      Name = "SPAS-12",
+      DisplayName = "SPAS-12",
+      Category = categories.Gun,
+      EquipmentSlot = EQUIPMENT_SLOTS.Gun,
+      OwnershipMode = ownershipModes.Permanent,
+      Price = { Currency = CURRENCIES.Cash, Amount = 25_000 },
+      Description = "Heavy pump shotgun for close-range work.",
+   },
 
    ["M249"] = {
       Name = "M249",
@@ -128,14 +135,30 @@ local itemsByName: { [string]: ItemBase } = {
 
    ["M24"] = {
       Name = "M24",
-      Displayname = "M24",
+      DisplayName = "M24",
       Category = categories.Gun,
       EquipmentSlot = EQUIPMENT_SLOTS.Gun,
       OwnershipMode = ownershipModes.Permanent,
       Price = { Currency = CURRENCIES.Cash, Amount = 10_000 },
       Description = "Who said you had to get close?",
-   }
+   },
 }
+
+for _, loot in LootConstants.Items do
+   itemsByName[loot.Name] = {
+      Name = loot.Name,
+      DisplayName = loot.DisplayName,
+      Category = categories.Loot,
+      OwnershipMode = ownershipModes.Consumable,
+      Price = { Currency = CURRENCIES.Free },
+      Purchasable = false,
+      Description = loot.Description,
+      Loot = {
+         Rarity = loot.Rarity,
+         SellValue = loot.SellValue,
+      },
+   }
+end
 
 -------------------------------------------------------------------------------
 -- PUBLIC VARIABLES
@@ -149,23 +172,23 @@ ItemConstants.OwnershipModes = ownershipModes
 -------------------------------------------------------------------------------
 
 function ItemConstants.getItem(itemName: string)
-	return itemsByName[itemName]
+   return itemsByName[itemName]
 end
 
 function ItemConstants.getItemFromHash(hash: number)
-	return itemsByHash[hash]
+   return itemsByHash[hash]
 end
 
 function ItemConstants.getItemHash(itemName: string)
-	return itemsToHash[itemName] or CRC32C(buffer.fromstring(itemName))
+   return itemsToHash[itemName] or CRC32C(buffer.fromstring(itemName))
 end
 
 function ItemConstants.getItemsInCategory(category: Category)
-	return itemsByCategory[category]
+   return itemsByCategory[category]
 end
 
 function ItemConstants.getAllItems()
-	return itemsByName
+   return itemsByName
 end
 
 -------------------------------------------------------------------------------
@@ -173,20 +196,20 @@ end
 -------------------------------------------------------------------------------
 
 for itemName, item in itemsByName do
-	local bucket = itemsByCategory[item.Category]
-	if not bucket then
-		bucket = {}
-		itemsByCategory[item.Category] = bucket
-	end
+   local bucket = itemsByCategory[item.Category]
+   if not bucket then
+      bucket = {}
+      itemsByCategory[item.Category] = bucket
+   end
 
-	local hash = CRC32C(buffer.fromstring(itemName))
-	if itemsByHash[hash] then
-		error(`Duplicate hash {hash} on {itemName} & {itemsByHash[hash].Name}`)
-	end
+   local hash = CRC32C(buffer.fromstring(itemName))
+   if itemsByHash[hash] then
+      error(`Duplicate hash {hash} on {itemName} & {itemsByHash[hash].Name}`)
+   end
 
-	itemsByHash[hash] = item
-	itemsToHash[itemName] = hash
-	bucket[itemName] = item
+   itemsByHash[hash] = item
+   itemsToHash[itemName] = hash
+   bucket[itemName] = item
 end
 
 return ItemConstants

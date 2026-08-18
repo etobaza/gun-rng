@@ -21,7 +21,6 @@ local RunService = game:GetService("RunService")
 local Counter = require(ReplicatedStorage.Shared.Classes.Counter)
 local RemoteCodes = require(ReplicatedStorage.Shared.Networking.RemoteCodes)
 local SimpleRemotes = require(ReplicatedStorage.Shared.Networking.SimpleRemotes)
-local BufferUtil = require(ReplicatedStorage.Shared.Utils.BufferUtil)
 local PlayersUtil = require(ReplicatedStorage.Shared.Utils.PlayersUtil)
 
 -------------------------------------------------------------------------------

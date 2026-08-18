@@ -22,10 +22,12 @@ local WeaponConstants = require(ReplicatedStorage.Shared.Constants.WeaponConstan
 local GameTypes = require(ReplicatedStorage.Shared.GameTypes)
 local BanService = require(ServerStorage.Server.Core.BanService)
 local GlobalInstanceService = require(ServerStorage.Server.Services.GlobalInstanceService)
+local CreatureService = require(ServerStorage.Server.Services.CreatureService)
 local BulletTrackingService = require(ServerStorage.Server.Services.GunService.BulletTrackingService)
 local RemoteCodes = require(ReplicatedStorage.Shared.Networking.RemoteCodes)
 local SimpleRemotes = require(ReplicatedStorage.Shared.Networking.SimpleRemotes)
 local SimpleRemotesUtil = require(ReplicatedStorage.Shared.Networking.SimpleRemotesUtil)
+local AnimationJointUtil = require(ReplicatedStorage.Shared.Utils.AnimationJointUtil)
 local BufferUtil = require(ReplicatedStorage.Shared.Utils.BufferUtil)
 local GeneralUtil = require(ReplicatedStorage.Shared.Utils.GeneralUtil)
 local InstanceUtil = require(ReplicatedStorage.Shared.Utils.InstanceUtil)
@@ -45,12 +47,23 @@ local GUN_ACTIONS = WeaponConstants.GunActions
 local OWNER_TYPES = BulletTrackingConstants.OwnerTypes
 
 local ROLLING_CODE_BYTES = 20 -- Offset by N, because this is the length of the RC with the additional characters
+local FIRE_RATE_TOLERANCE = 0.03
+local CREATURE_SHOT_LIFETIME = 8
+local CREATURE_SHOT_DIRECTION_COSINE = math.cos(math.rad(12))
+local CREATURE_SHOT_DISTANCE_TOLERANCE = 20
+local MAX_CREATURE_SHOT_CREDITS = 256
 
 -------------------------------------------------------------------------------
 -- TYPES
 -------------------------------------------------------------------------------
 
 export type GunModule = typeof(require(ReplicatedStorage.Shared.Weapons.M1911)())
+
+type CreatureShotCredit = {
+   CreatedAt: number,
+   Origin: Vector3,
+   Velocity: Vector3,
+}
 
 -------------------------------------------------------------------------------
 -- PRIVATE VARIABLES
@@ -71,298 +84,387 @@ local rng = Random.new()
 -------------------------------------------------------------------------------
 
 local function banIfDifferent(player: Player, otherPlayer: Player)
-	local same = player == otherPlayer
-	if not same then
-		BanService.ban(otherPlayer, {
-			BaseDuration = BanService.Times.Year,
-			PrivateReason = "Retrieving someone elses rolling rode",
-		})
-	end
-	return not same
+   local same = player == otherPlayer
+   if not same then
+      BanService.ban(otherPlayer, {
+         BaseDuration = BanService.Times.Year,
+         PrivateReason = "Retrieving someone elses rolling rode",
+      })
+   end
+   return not same
 end
 
 local function getDamageValue(gunModule: GameTypes.GunModule, hitLimb: BasePart)
-	local damages = gunModule.Damage
-	local limbName = hitLimb.Name
+   local damages = gunModule.Damage
+   local limbName = hitLimb.Name
 
-	if limbName == "Head" then
-		return damages.Head
-	elseif limbName == "LowerTorso" or string.match(limbName, "Leg") or string.match(limbName, "Foot") then
-		return damages.Lower
-	else
-		return damages.Upper
-	end
+   if limbName == "Head" then
+      return damages.Head
+   elseif limbName == "LowerTorso" or string.match(limbName, "Leg") or string.match(limbName, "Foot") then
+      return damages.Lower
+   else
+      return damages.Upper
+   end
 end
 
 local function loadGunTool(player: Player, tool: GameTypes.GunModel)
-	loadedToolsByPlayer[player][tool] = true
+   loadedToolsByPlayer[player][tool] = true
 
-	local gunModule = require(WEAPON_MODULES[tool.Name])() :: GunModule
-	local character = (player.Character or player.CharacterAdded:Wait()) :: GameTypes.R15Character
-	local characterInstanceId = GlobalInstanceService.getId(character)
-	local gunRoot = GeneralUtil.getPrimaryPart(tool)
+   local gunModule = require(WEAPON_MODULES[tool.Name])() :: GunModule
+   local character = (player.Character or player.CharacterAdded:Wait()) :: GameTypes.R15Character
+   local gunRoot = GeneralUtil.getPrimaryPart(tool)
 
-	local remoteFunction = SimpleRemotes.getFunction("RemoteFunction", tool)
-	local remoteEvent = SimpleRemotes.getEvent("RemoteEvent", tool)
+   local remoteFunction = SimpleRemotes.getFunction("RemoteFunction", tool)
+   local remoteEvent = SimpleRemotes.getEvent("RemoteEvent", tool)
 
-	-- Rolling codes
-	local rcStartValue = rng:NextInteger(-1200, -700)
-	local rcIncrementValue = rng:NextInteger(1000, 9999) / rng:NextInteger(100, 1000)
-	local rcFinishValue = rcStartValue + rcIncrementValue * rng:NextInteger(200, 400)
-	local rcCurrentValue = rcStartValue
-	local rcRetrieved = false
+   -- Rolling codes
+   local rcStartValue = rng:NextInteger(-1200, -700)
+   local rcIncrementValue = rng:NextInteger(1000, 9999) / rng:NextInteger(100, 1000)
+   local rcFinishValue = rcStartValue + rcIncrementValue * rng:NextInteger(200, 400)
+   local rcCurrentValue = rcStartValue
+   local rcRetrieved = false
 
-	-- Localize variables
-	local currentAmmo = gunModule.MagazineSize
-	local offsets = gunModule.Offsets
-	local gunAction = gunModule.Action
+   -- Localize variables
+   local currentAmmo = gunModule.MagazineSize
+   local offsets = gunModule.Offsets
+   local gunAction = gunModule.Action
+   local fireInterval = 60 / gunModule.Firerate
+   local lastShotAt = -math.huge
+   local creatureShotCredits: { CreatureShotCredit } = {}
+   local expectedExitNode = tool.Nodes.Exit
 
-	local rootMotor6D = Instance.new("Motor6D")
-	rootMotor6D.Part0 = character:WaitForChild("LowerTorso")
-	rootMotor6D.Part1 = gunRoot
-	rootMotor6D.C0 = offsets.ThirdPerson
-	rootMotor6D.Name = "RootMotor"
-	rootMotor6D.Parent = gunRoot
-	gunRoot.Anchored = false
+   AnimationJointUtil.createKinematic(
+      "RootConstraint",
+      character:WaitForChild("LowerTorso") :: BasePart,
+      gunRoot,
+      offsets.ThirdPerson,
+      CFrame.identity,
+      gunRoot
+   )
+   gunRoot.Anchored = false
 
-	local leftArm, rightArm = tool["Left Arm"], tool["Right Arm"]
-	leftArm.Transparency = 1
-	rightArm.Transparency = 1
+   local leftArm, rightArm = tool["Left Arm"], tool["Right Arm"]
+   leftArm.Transparency = 1
+   rightArm.Transparency = 1
 
-	--[[
+   --[[
       Helper methods
    ]]
 
-	local function getRollingCode()
-		local old = rcCurrentValue
-		rcCurrentValue += rcIncrementValue
-		if rcCurrentValue > rcFinishValue then
-			rcCurrentValue = rcStartValue
-		end
-		return old
-	end
+   local function getRollingCode()
+      local old = rcCurrentValue
+      rcCurrentValue += rcIncrementValue
+      if rcCurrentValue > rcFinishValue then
+         rcCurrentValue = rcStartValue
+      end
+      return old
+   end
 
-	local function banIfRCMismatch(clientRCValue: number, serverRCValue: number)
-		local same = clientRCValue == serverRCValue
-		if not same then
-			BanService.ban(player, {
-				BaseDuration = BanService.Times.Year,
-				PrivateReason = "Rolling code mismatch on shoot action",
-			})
-		end
-		return not same
-	end
+   local function banIfRCMismatch(clientRCValue: number, serverRCValue: number)
+      local same = clientRCValue == serverRCValue
+      if not same then
+         BanService.ban(player, {
+            BaseDuration = BanService.Times.Year,
+            PrivateReason = "Rolling code mismatch on shoot action",
+         })
+      end
+      return not same
+   end
 
-	--[[
+   local function consumeCreatureShotCredit(hitPosition: Vector3): Vector3?
+      local now = workspace:GetServerTimeNow()
+      local index = 1
+
+      while index <= #creatureShotCredits do
+         local credit = creatureShotCredits[index]
+         local age = now - credit.CreatedAt
+         if age > CREATURE_SHOT_LIFETIME then
+            table.remove(creatureShotCredits, index)
+            continue
+         end
+
+         local toHit = hitPosition - credit.Origin
+         local distance = toHit.Magnitude
+         local directionMatches = distance <= 0
+            or credit.Velocity.Unit:Dot(toHit.Unit) >= CREATURE_SHOT_DIRECTION_COSINE
+         local distanceMatches = distance
+            <= credit.Velocity.Magnitude * math.max(0, age) + CREATURE_SHOT_DISTANCE_TOLERANCE
+
+         if directionMatches and distanceMatches then
+            table.remove(creatureShotCredits, index)
+            return credit.Origin
+         end
+
+         index += 1
+      end
+
+      return nil
+   end
+
+   --[[
       Connect remote function and event
    ]]
 
-	SimpleRemotesUtil.bindRemoteFunctionActions(remoteFunction, {
-		[FUNCTION_CODES.GetRC] = function(otherPlayer: Player)
-			if banIfDifferent(player, otherPlayer) then
-				return
-			end
+   SimpleRemotesUtil.bindRemoteFunctionActions(remoteFunction, {
+      [FUNCTION_CODES.GetRC] = function(otherPlayer: Player)
+         if banIfDifferent(player, otherPlayer) then
+            return
+         end
 
-			if rcRetrieved then
-				BanService.ban(player, {
-					BaseDuration = BanService.Times.Year,
-					PrivateReason = "Retrieving already retrieved rolling code",
-				})
-				return
-			end
+         if rcRetrieved then
+            BanService.ban(player, {
+               BaseDuration = BanService.Times.Year,
+               PrivateReason = "Retrieving already retrieved rolling code",
+            })
+            return
+         end
 
-			rcRetrieved = true
+         rcRetrieved = true
 
-			return rcStartValue, rcIncrementValue, rcFinishValue, rcStartValue
-		end,
-	}, SimpleRemotesUtil.DecodeActionBuffer)
+         return rcStartValue, rcIncrementValue, rcFinishValue, rcStartValue
+      end,
+   }, SimpleRemotesUtil.DecodeActionBuffer)
 
-	SimpleRemotesUtil.bindRemoteEventActions(remoteEvent, {
-		[EVENT_CODES.Shoot] = function(otherPlayer: Player, b: buffer, excludeInstances: { Instance })
-			if banIfDifferent(player, otherPlayer) then
-				return
-			end
+   SimpleRemotesUtil.bindRemoteEventActions(remoteEvent, {
+      [EVENT_CODES.Shoot] = function(otherPlayer: Player, b: buffer, excludeInstances: { Instance })
+         if banIfDifferent(player, otherPlayer) then
+            return
+         end
 
-			local serverRCValue, clientRCValue, offset = getRollingCode(), BufferUtil.readf64(b, 0), ROLLING_CODE_BYTES
-			if banIfRCMismatch(clientRCValue, serverRCValue) then
-				return
-			end
+         local serverRCValue, clientRCValue, offset = getRollingCode(), BufferUtil.readf64(b, 0), ROLLING_CODE_BYTES
+         if banIfRCMismatch(clientRCValue, serverRCValue) then
+            return
+         end
 
-			currentAmmo -= 1
-			if currentAmmo < 0 then
-				BanService.ban(player, {
-					BaseDuration = BanService.Times.Week,
-					PrivateReason = "Shooting without ammo",
-					PublicReason = "Exploits Detected",
-				})
-				return
-			end
+         local shotReceivedAt = os.clock()
+         if shotReceivedAt + FIRE_RATE_TOLERANCE < lastShotAt + fireInterval then
+            return
+         end
 
-			local exitNodeId, pelletAmount
-			exitNodeId, offset = BufferUtil.readu32(b, offset)
-			pelletAmount, offset = BufferUtil.readu8(b, offset)
+         if currentAmmo <= 0 then
+            BanService.ban(player, {
+               BaseDuration = BanService.Times.Week,
+               PrivateReason = "Shooting without ammo",
+               PublicReason = "Exploits Detected",
+            })
+            return
+         end
 
-			local exitNode = GlobalInstanceService.getInstance(exitNodeId) :: BasePart?
-			if not exitNode then
-				return
-			end
+         local exitNodeId, pelletAmount
+         exitNodeId, offset = BufferUtil.readu32(b, offset)
+         pelletAmount, offset = BufferUtil.readu8(b, offset)
 
-			-- Read pellets & schedule bullet tracks
-			local pelletVelocities = table.create(pelletAmount)
-			for pelletIndex = 1, pelletAmount do
-				local pelletVelocity
-				pelletVelocity, offset = BufferUtil.readVector3_96(b, offset)
-				pelletVelocities[pelletIndex] = pelletVelocity
-			end
+         local exitNode = GlobalInstanceService.getInstance(exitNodeId) :: BasePart?
+         if not exitNode or exitNode ~= expectedExitNode or pelletAmount ~= gunModule.Pellets then
+            return
+         end
 
-			BulletTrackingService.replicateShot(
-				exitNode,
-				pelletVelocities,
-				OWNER_TYPES.Player,
-				player.UserId,
-				excludeInstances,
-				gunModule.Caliber
-			)
+         local pelletVelocities = table.create(pelletAmount)
+         local baseMuzzleVelocity = gunModule.MuzzleVelocity
+         local minimumMuzzleVelocity = if type(baseMuzzleVelocity) == "table"
+            then baseMuzzleVelocity[1]
+            else baseMuzzleVelocity
+         local maximumMuzzleVelocity = if type(baseMuzzleVelocity) == "table"
+            then baseMuzzleVelocity[2]
+            else baseMuzzleVelocity
+         local characterVelocity = character.PrimaryPart.AssemblyLinearVelocity
 
-			-- Replicate effect to other clients
-			SimpleRemotesUtil.fireAllClientsExcept(
-				globalRemoteEvent,
-				player,
-				BufferUtil.construct({
-					{ Type = "U8", Value = EVENT_CODES.Shoot },
-					{ Type = "U32", Value = exitNodeId },
-				})
-			)
-		end,
+         for pelletIndex = 1, pelletAmount do
+            local pelletVelocity
+            pelletVelocity, offset = BufferUtil.readVector3_96(b, offset)
 
-		[EVENT_CODES.Damage] = function(otherPlayer: Player, b: buffer)
-			if banIfDifferent(player, otherPlayer) then
-				return
-			end
+            local relativeSpeed = (pelletVelocity - characterVelocity).Magnitude
+            if
+               relativeSpeed ~= relativeSpeed
+               or relativeSpeed < minimumMuzzleVelocity * 0.75
+               or relativeSpeed > maximumMuzzleVelocity * 1.25 + 50
+            then
+               return
+            end
 
-			local serverRCValue, clientRCValue, offset = getRollingCode(), BufferUtil.readf64(b, 0), ROLLING_CODE_BYTES
-			if banIfRCMismatch(clientRCValue, serverRCValue) then
-				return
-			end
+            pelletVelocities[pelletIndex] = pelletVelocity
+         end
 
-			local ownerType, hitCharacterInstanceId, hitInstanceId
-			ownerType, offset = BufferUtil.readu8(b, offset)
-			hitCharacterInstanceId, offset = BufferUtil.readu32(b, offset)
-			hitInstanceId, offset = BufferUtil.readu32(b, offset)
+         currentAmmo -= 1
+         lastShotAt = shotReceivedAt
 
-			if ownerType == OWNER_TYPES.Player then
-				local hitCharacter = GlobalInstanceService.getInstance(hitCharacterInstanceId) :: GameTypes.R15Character?
-				if not hitCharacter or hitCharacter == character then
-					return
-				end
+         local shotCreatedAt = workspace:GetServerTimeNow()
+         while #creatureShotCredits + #pelletVelocities > MAX_CREATURE_SHOT_CREDITS do
+            table.remove(creatureShotCredits, 1)
+         end
 
-				local hitPlayer = Players:GetPlayerFromCharacter(hitCharacter)
-				if not hitPlayer then
-					return
-				end
+         for _, pelletVelocity in pelletVelocities do
+            table.insert(creatureShotCredits, {
+               CreatedAt = shotCreatedAt,
+               Origin = exitNode.Position,
+               Velocity = pelletVelocity,
+            })
+         end
 
-				local hitHumanoid = hitCharacter:FindFirstChildOfClass("Humanoid")
-				local hitPart = GlobalInstanceService.getInstance(hitInstanceId)
-				if not (hitHumanoid and hitPart) then
-					return -- RETURN: No humanoid or limb available
-				end
+         BulletTrackingService.replicateShot(
+            exitNode,
+            pelletVelocities,
+            OWNER_TYPES.Player,
+            player.UserId,
+            excludeInstances,
+            gunModule.Caliber
+         )
 
-				if hitHumanoid.Health <= 0 then
-					return -- RETURN: Already dead
-				end
+         -- Replicate effect to other clients
+         SimpleRemotesUtil.fireAllClientsExcept(
+            globalRemoteEvent,
+            player,
+            BufferUtil.construct({
+               { Type = "U8", Value = EVENT_CODES.Shoot },
+               { Type = "U32", Value = exitNodeId },
+            })
+         )
+      end,
 
-				hitHumanoid:TakeDamage(getDamageValue(gunModule, hitPart))
-				globalRemoteEvent:FireClient( -- Replicate damage to victim
-					hitPlayer,
-					BufferUtil.construct({
-						{ Type = "U8", Value = EVENT_CODES.Damage },
-						{ Type = "VECTOR3_96", Value = character.PrimaryPart.Position },
-					}, 13)
-				)
+      [EVENT_CODES.Damage] = function(otherPlayer: Player, b: buffer)
+         if banIfDifferent(player, otherPlayer) then
+            return
+         end
 
-				if hitHumanoid.Health <= 0 then -- Replicate kill to the killer
-					globalRemoteEvent:FireClient(
-						player,
-						BufferUtil.construct({
-							{ Type = "U8", Value = EVENT_CODES.NotifyKill },
-							{ Type = "U32", Value = hitCharacterInstanceId },
-							{ Type = "U8", Value = OWNER_TYPES.Player },
-						}, 6)
-					)
-				end
-			elseif ownerType == OWNER_TYPES.NPC then
-				local hitCharacter = GlobalInstanceService.getInstance(hitCharacterInstanceId) :: GameTypes.R15Character?
-				if not hitCharacter then
-					return
-				end
+         local serverRCValue, clientRCValue, offset = getRollingCode(), BufferUtil.readf64(b, 0), ROLLING_CODE_BYTES
+         if banIfRCMismatch(clientRCValue, serverRCValue) then
+            return
+         end
 
-				local hitHumanoid = hitCharacter:FindFirstChildOfClass("Humanoid")
-				local hitPart = GlobalInstanceService.getInstance(hitInstanceId)
-				if not (hitHumanoid and hitPart) then
-					return -- RETURN: No humanoid or limb available
-				end
+         local ownerType
+         ownerType, offset = BufferUtil.readu8(b, offset)
 
-				if hitHumanoid.Health <= 0 then
-					return -- RETURN: Already dead
-				end
+         if ownerType == OWNER_TYPES.Creature then
+            local creatureId, hitPosition
+            creatureId, offset = BufferUtil.readu32(b, offset)
+            hitPosition, offset = BufferUtil.readVector3_96(b, offset)
 
-				hitHumanoid:TakeDamage(getDamageValue(gunModule, hitPart))
-				if hitHumanoid.Health <= 0 then -- Replicate kill to the killer
-					globalRemoteEvent:FireClient(
-						player,
-						BufferUtil.construct({
-							{ Type = "U8", Value = EVENT_CODES.NotifyKill },
-							{ Type = "U32", Value = hitCharacterInstanceId },
-							{ Type = "U8", Value = OWNER_TYPES.NPC },
-						}, 6)
-					)
-				end
-			end
-		end,
+            local shotOrigin = consumeCreatureShotCredit(hitPosition)
+            if not shotOrigin then
+               return
+            end
 
-		[EVENT_CODES.Reload] = function(otherPlayer: Player, b: buffer)
-			if banIfDifferent(player, otherPlayer) then
-				return
-			end
+            CreatureService.damage(player, creatureId, gunModule.Damage.Upper, hitPosition, shotOrigin)
+            return
+         end
 
-			local serverRCValue, clientRCValue = getRollingCode(), BufferUtil.readf64(b, 0)
-			if banIfRCMismatch(clientRCValue, serverRCValue) then
-				return
-			end
+         local hitCharacterInstanceId, hitInstanceId
+         hitCharacterInstanceId, offset = BufferUtil.readu32(b, offset)
+         hitInstanceId, offset = BufferUtil.readu32(b, offset)
 
-			if gunAction == GUN_ACTIONS.Single then
-				currentAmmo = gunModule.MagazineSize
-			elseif gunAction == GUN_ACTIONS.Pump or gunAction == GUN_ACTIONS.Bolt then
-				currentAmmo = math.min(currentAmmo + 1, gunModule.MagazineSize)
-			end
-		end,
-	}, SimpleRemotesUtil.DecodeActionBuffer)
+         if ownerType == OWNER_TYPES.Player then
+            local hitCharacter = GlobalInstanceService.getInstance(hitCharacterInstanceId) :: GameTypes.R15Character?
+            if not hitCharacter or hitCharacter == character then
+               return
+            end
+
+            local hitPlayer = Players:GetPlayerFromCharacter(hitCharacter)
+            if not hitPlayer then
+               return
+            end
+
+            local hitHumanoid = hitCharacter:FindFirstChildOfClass("Humanoid")
+            local hitPart = GlobalInstanceService.getInstance(hitInstanceId)
+            if not (hitHumanoid and hitPart) then
+               return -- RETURN: No humanoid or limb available
+            end
+
+            if hitHumanoid.Health <= 0 then
+               return -- RETURN: Already dead
+            end
+
+            hitHumanoid:TakeDamage(getDamageValue(gunModule, hitPart))
+            globalRemoteEvent:FireClient( -- Replicate damage to victim
+               hitPlayer,
+               BufferUtil.construct({
+                  { Type = "U8", Value = EVENT_CODES.Damage },
+                  { Type = "VECTOR3_96", Value = character.PrimaryPart.Position },
+               }, 13)
+            )
+
+            if hitHumanoid.Health <= 0 then -- Replicate kill to the killer
+               globalRemoteEvent:FireClient(
+                  player,
+                  BufferUtil.construct({
+                     { Type = "U8", Value = EVENT_CODES.NotifyKill },
+                     { Type = "U32", Value = hitCharacterInstanceId },
+                     { Type = "U8", Value = OWNER_TYPES.Player },
+                  }, 6)
+               )
+            end
+         elseif ownerType == OWNER_TYPES.NPC then
+            local hitCharacter = GlobalInstanceService.getInstance(hitCharacterInstanceId) :: GameTypes.R15Character?
+            if not hitCharacter then
+               return
+            end
+
+            local hitHumanoid = hitCharacter:FindFirstChildOfClass("Humanoid")
+            local hitPart = GlobalInstanceService.getInstance(hitInstanceId)
+            if not (hitHumanoid and hitPart) then
+               return -- RETURN: No humanoid or limb available
+            end
+
+            if hitHumanoid.Health <= 0 then
+               return -- RETURN: Already dead
+            end
+
+            hitHumanoid:TakeDamage(getDamageValue(gunModule, hitPart))
+            if hitHumanoid.Health <= 0 then -- Replicate kill to the killer
+               globalRemoteEvent:FireClient(
+                  player,
+                  BufferUtil.construct({
+                     { Type = "U8", Value = EVENT_CODES.NotifyKill },
+                     { Type = "U32", Value = hitCharacterInstanceId },
+                     { Type = "U8", Value = OWNER_TYPES.NPC },
+                  }, 6)
+               )
+            end
+         end
+      end,
+
+      [EVENT_CODES.Reload] = function(otherPlayer: Player, b: buffer)
+         if banIfDifferent(player, otherPlayer) then
+            return
+         end
+
+         local serverRCValue, clientRCValue = getRollingCode(), BufferUtil.readf64(b, 0)
+         if banIfRCMismatch(clientRCValue, serverRCValue) then
+            return
+         end
+
+         if gunAction == GUN_ACTIONS.Single then
+            currentAmmo = gunModule.MagazineSize
+         elseif gunAction == GUN_ACTIONS.Pump or gunAction == GUN_ACTIONS.Bolt then
+            currentAmmo = math.min(currentAmmo + 1, gunModule.MagazineSize)
+         end
+      end,
+   }, SimpleRemotesUtil.DecodeActionBuffer)
 end
 
 local function onPlayerAdded(player: Player)
-	loadedToolsByPlayer[player] = {}
+   loadedToolsByPlayer[player] = {}
 
-	InstanceUtil.connectChildAdded(player, function(child)
-		if child ~= player.Backpack then
-			return
-		end
+   InstanceUtil.connectChildAdded(player, function(child)
+      if child ~= player.Backpack then
+         return
+      end
 
-		InstanceUtil.connectChildAdded(child, function(tool)
-			if not WeaponsUtil.isToolAGun(tool) then
-				return
-			end
+      InstanceUtil.connectChildAdded(child, function(tool)
+         if not WeaponsUtil.isToolAGun(tool) then
+            return
+         end
 
-			if loadedToolsByPlayer[player][tool] then
-				return
-			end
+         if loadedToolsByPlayer[player][tool] then
+            return
+         end
 
-			loadGunTool(player, tool)
-		end)
-	end)
+         loadGunTool(player, tool)
+      end)
+   end)
 end
 
 local function onPlayerRemoving(player: Player)
-	loadedToolsByPlayer[player] = nil
+   loadedToolsByPlayer[player] = nil
 end
 
 -------------------------------------------------------------------------------
@@ -374,8 +476,8 @@ end
 -------------------------------------------------------------------------------
 
 function GunService.init()
-	PlayersUtil.onPlayerAdded(onPlayerAdded)
-	Players.PlayerRemoving:Connect(onPlayerRemoving)
+   PlayersUtil.onPlayerAdded(onPlayerAdded)
+   Players.PlayerRemoving:Connect(onPlayerRemoving)
 end
 
 function GunService.start() end

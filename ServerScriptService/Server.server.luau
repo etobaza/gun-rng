@@ -25,11 +25,17 @@ do
 
 	local start = os.clock()
 
-	-- Load interfaces
+	-- Load interfaces from the GameGUIs package
 	local interfaces = Instance.new("Folder")
 	interfaces.Name = "__INTERFACES"
-	for _, v in next, StarterGui:QueryDescendants("ScreenGui") do v.Parent = interfaces end
-   for _,v in next,StarterGui:QueryDescendants(":not(ScreenGui)") do v:Destroy() end
+	local gameGuis = StarterGui:WaitForChild("GameGUIs")
+	for _, v in next, StarterGui:QueryDescendants("ScreenGui") do
+		assert(v:IsDescendantOf(gameGuis), `{v:GetFullName()} must be inside StarterGui.GameGUIs`)
+		v.Parent = interfaces
+	end
+	for _, v in next, StarterGui:QueryDescendants(":not(ScreenGui)") do
+		v:Destroy()
+	end
 	interfaces.Parent = ReplicatedStorage
 
 	-- Require modules
