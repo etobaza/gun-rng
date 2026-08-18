@@ -24,6 +24,12 @@ export type LootDefinition = {
    Description: string,
    Rarity: Rarity,
    SellValue: number,
+   Icon: string?,
+}
+
+export type IndexMilestone = {
+   RequiredDiscoveries: number,
+   RewardPercent: number,
 }
 
 local rarityOrder: { Rarity } = {
@@ -48,6 +54,13 @@ local rarityData: { [Rarity]: RarityData } = {
    Unforeseen = { Index = 7, Weight = 100, LuckExponent = 2.7, Color = Color3.fromRGB(88, 255, 203) },
    Paranormal = { Index = 8, Weight = 30, LuckExponent = 3.15, Color = Color3.fromRGB(144, 255, 73) },
    Secret = { Index = 9, Weight = 5, LuckExponent = 3.6, Color = Color3.fromRGB(255, 255, 255) },
+}
+
+local indexMilestones: { IndexMilestone } = {
+   { RequiredDiscoveries = 3, RewardPercent = 1 },
+   { RequiredDiscoveries = 5, RewardPercent = 2 },
+   { RequiredDiscoveries = 7, RewardPercent = 3 },
+   { RequiredDiscoveries = 9, RewardPercent = 4 },
 }
 
 local items: { LootDefinition } = {
@@ -132,6 +145,7 @@ end
 LootConstants.RarityOrder = table.freeze(rarityOrder)
 LootConstants.RarityData = table.freeze(rarityData)
 LootConstants.Items = table.freeze(items)
+LootConstants.IndexMilestones = table.freeze(indexMilestones)
 
 function LootConstants.getItem(itemName: string): LootDefinition?
    return itemsByName[itemName]
@@ -139,6 +153,29 @@ end
 
 function LootConstants.getItemsInRarity(rarity: Rarity): { LootDefinition }
    return itemsByRarity[rarity]
+end
+
+function LootConstants.getIndexLuckPercent(discoveredCount: number): number
+   local luckPercent = 0
+   for _, milestone in indexMilestones do
+      if discoveredCount < milestone.RequiredDiscoveries then
+         break
+      end
+
+      luckPercent += milestone.RewardPercent
+   end
+
+   return luckPercent
+end
+
+function LootConstants.getNextIndexMilestone(discoveredCount: number): IndexMilestone?
+   for _, milestone in indexMilestones do
+      if discoveredCount < milestone.RequiredDiscoveries then
+         return milestone
+      end
+   end
+
+   return nil
 end
 
 function LootConstants.roll(luckMultiplier: number, random: Random?): LootDefinition

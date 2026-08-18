@@ -47,6 +47,9 @@ function ProfileTemplate.get()
    -- Core
    profile.Currencies = currencies
    profile.ItemInventory = buffer.create(0)
+   profile.Index = {
+      DiscoveredLoot = buffer.create(0),
+   }
    profile.EquippedItems = {} :: { [EquipmentConstants.Slot]: string? }
    profile.BanData = banData
    profile.Progression = {

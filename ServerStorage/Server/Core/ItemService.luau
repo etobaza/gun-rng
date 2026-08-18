@@ -41,6 +41,7 @@ local FUNCTION_CODES = RemoteCodes.Item.Functions
 
 type ItemEventTask = (player: Player, itemName: string, deltaAmount: number) -> ()
 type ItemAcquiredTask = (player: Player, itemName: string) -> ()
+type InventoryLoadedTask = (player: Player, inventory: { [string]: number | true }) -> ()
 
 -------------------------------------------------------------------------------
 -- PRIVATE VARIABLES
@@ -57,6 +58,7 @@ local itemRemoteFunction = SimpleRemotes.getFunction("Item")
 ItemService.ItemGrantedTasks = TasksList.new() :: TasksList.TasksList<ItemEventTask>
 ItemService.ItemConsumedTasks = TasksList.new() :: TasksList.TasksList<ItemEventTask>
 ItemService.ItemAcquiredTasks = TasksList.new() :: TasksList.TasksList<ItemAcquiredTask>
+ItemService.InventoryLoadedTasks = TasksList.new() :: TasksList.TasksList<InventoryLoadedTask>
 
 -------------------------------------------------------------------------------
 -- PRIVATE FUNCTIONS
@@ -197,6 +199,7 @@ local function onProfileAdded(player: Player, data: PlayerDataService.Data, prof
    end
 
    playerItemInventories[player] = itemInventory
+   ItemService.InventoryLoadedTasks:Execute("parallel", player, itemInventory)
 end
 
 local function onProfileRemoved(player: Player)

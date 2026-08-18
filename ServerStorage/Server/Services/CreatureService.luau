@@ -13,6 +13,7 @@ local BufferUtil = require(ReplicatedStorage.Shared.Utils.BufferUtil)
 local CreatureUtil = require(ReplicatedStorage.Shared.Utils.CreatureUtil)
 local ItemService = require(ServerStorage.Server.Core.ItemService)
 local PlayerDataService = require(ServerStorage.Server.Core.PlayerDataService)
+local IndexService = require(ServerStorage.Server.Services.IndexService)
 
 local EVENT_CODES = RemoteCodes.Creature.Events
 local FUNCTION_CODES = RemoteCodes.Creature.Functions
@@ -136,7 +137,8 @@ local function getLuckMultiplier(player: Player, mutationId: number): number
    local progression = data.Progression
    local upgradeLuck = 1 + progression.Upgrades.Luck * LUCK_PER_UPGRADE_LEVEL
    local worldLuck = 1 + math.max(0, progression.World - 1) * WORLD_LUCK_PER_LEVEL
-   return upgradeLuck * worldLuck * mutation.LuckMultiplier
+   local indexLuck = IndexService.getLuckMultiplier(player)
+   return upgradeLuck * worldLuck * indexLuck * mutation.LuckMultiplier
 end
 
 local function rewardKill(player: Player, snapshot: CreatureConstants.Snapshot)

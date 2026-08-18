@@ -153,6 +153,7 @@ for _, loot in LootConstants.Items do
       Price = { Currency = CURRENCIES.Free },
       Purchasable = false,
       Description = loot.Description,
+      Icon = loot.Icon,
       Loot = {
          Rarity = loot.Rarity,
          SellValue = loot.SellValue,
