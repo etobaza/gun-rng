@@ -1039,7 +1039,7 @@ local function initializeGunTool(tool: GunTool)
       -- Visual loop
       -- equippedConnections:Add(RunService.PreRender:Connect(function(dT)
       equippedConnections:Add(
-         GeneralUtil.bindToRenderStep("GunUpdate", Enum.RenderPriority.Camera.Value + 9, function(dT)
+         GeneralUtil.bindToRenderStep("GunUpdate", Enum.RenderPriority.Camera.Value + 11, function(dT)
             local now = os.clock()
 
             local head = character:FindFirstChild("Head")
